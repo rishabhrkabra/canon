@@ -93,7 +93,15 @@ export function ActionGate({ facts }: { facts: Fact[] }) {
         ))}
       </div>
 
-      <div className={`verdict ${VERDICT_CLASS[result.verdict]}`}>
+      {/* The verdict changes as the user types, with no focus move, so a
+          screen reader would otherwise never announce it. Polite, not
+          assertive: it should not interrupt mid-word. */}
+      <div
+        className={`verdict ${VERDICT_CLASS[result.verdict]}`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
         <div className="vhead">
           <span className="vlabel">{VERDICT_LABEL[result.verdict]}</span>
           <code className="vcode">{result.verdict}</code>
@@ -101,9 +109,11 @@ export function ActionGate({ facts }: { facts: Fact[] }) {
         <p className="vhead-sub">{result.headline}</p>
       </div>
 
+      <div aria-live="polite">
       {result.checks.map((c) => (
         <CheckRow key={`${c.premise.entity}-${c.premise.property}`} check={c} />
       ))}
+      </div>
 
       {result.corrected && result.corrected !== result.action ? (
         <div className="side">

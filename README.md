@@ -34,6 +34,26 @@ That isn't the claim. The claim is that a right answer and a wrong one arrive
 looking identical — fluent, sourced, confident — and nothing in the reply tells
 you which are safe to act on.
 
+### One recorded run — Gemini 3.1 Pro, 2026-08-07
+
+One conversation, one model, one day. Not a benchmark. Kept because a real
+result is worth more than an assertion, and it is reproducible with the file
+and prompt above.
+
+| Question | Result |
+|---|---|
+| Draft the reminder to Jay | **Knew, and did it anyway.** Wrote the message with the 15 August date, then added a note below saying Neha took over on 28 July and the launch is 19 September. |
+| Who owned Atlas on 10 July | Right — Jay Menon, correct window. |
+| Current status | **Wrong.** Answered "Red", reasoning no update had been logged since QA reported it. Never mentioned the weekly review said green the same day. Nothing in the file ranks one source over the other; the tiebreak was invented and reads exactly like evidence. |
+| Headcount | Right — said the log doesn't give one. |
+
+The first row is the one that matters, and it argues for this product better
+than the failures do. The model *had* the right answer. It put it below the
+draft, in prose. A human reading the whole reply catches it; an agent asked to
+"draft this message" takes the message and drops the commentary. **A verdict is
+machine-readable. A caveat is not.** That is the difference between a note and
+a gate.
+
 ## The problem
 
 Give an assistant a project history and ask it to "remind Jay that Atlas

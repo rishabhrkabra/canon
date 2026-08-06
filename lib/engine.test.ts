@@ -196,6 +196,46 @@ describe('regressions — three ways the engine was wrong', () => {
     }
   });
 
+  it('a repeat of one side settles a conflict instead of prolonging it', () => {
+    // Second audit round. Was: "green" on the 21st was counted as another vote
+    // for the historical green, so the pair stayed conflicted forever. Backing
+    // one side of a contradiction is a resolution, not corroboration.
+    const { facts } = buildFacts([
+      c('Atlas', 'status', 'green', '2026-07-20', 1),
+      c('Atlas', 'status', 'red', '2026-07-20', 2),
+      c('Atlas', 'status', 'green', '2026-07-21', 3),
+    ]);
+    const live = facts.filter((f) => f.validUntil === undefined);
+    expect(live).toHaveLength(1);
+    expect(live[0].value).toBe('green');
+    expect(live[0].status).toBe('active');
+    expect(live[0].validFrom).toBe('2026-07-21');
+
+    // Both original sides are closed, and still on the record as history.
+    for (const v of ['green', 'red']) {
+      const historical = facts.find(
+        (f) => f.value === v && f.validFrom === '2026-07-20',
+      )!;
+      expect(historical.status).toBe('conflicted');
+      expect(historical.validUntil).toBe('2026-07-21');
+    }
+  });
+
+  it('rejects a receipt that cites nothing', () => {
+    const base = c('Atlas', 'owner', 'Jay', '2026-07-01', 1);
+    expect(isValidCandidate({ ...base, sourceSpan: '' })).toBe(false);
+    expect(isValidCandidate({ ...base, sourceSpan: '   ' })).toBe(false);
+    expect(isValidCandidate({ ...base, sourceLine: 0 })).toBe(false);
+    expect(isValidCandidate({ ...base, sourceLine: -3 })).toBe(false);
+    expect(isValidCandidate({ ...base, sourceLine: 1.5 })).toBe(false);
+    const { verified, rejected } = verifyReceipts(
+      [{ ...base, sourceSpan: '' }],
+      '2026-07-01: Atlas owner is Jay',
+    );
+    expect(verified).toHaveLength(0);
+    expect(rejected[0].reason).toContain('cites no text');
+  });
+
   it('rejects dates that match the shape but are not real days', () => {
     expect(isIsoDate('2026-02-30')).toBe(false);
     expect(isIsoDate('2026-13-01')).toBe(false);

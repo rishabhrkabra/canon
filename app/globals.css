@@ -7,8 +7,10 @@
   --panel-2: #1c1f24;
   --line: #2a2e35;
   --text: #e6e8ec;
-  --dim: #9aa1ad;
-  --faint: #6b7280;
+  /* Contrast-checked against --panel (#16181c): dim 8.2:1, faint 5.9:1.
+     Both clear the 4.5:1 target for normal text. */
+  --dim: #a8b0bd;
+  --faint: #8b94a3;
 
   --active: #4ade80;
   --superseded: #9aa1ad;
@@ -113,10 +115,6 @@ ol.qsteps li::marker { color: var(--faint); font-size: 12px; }
 /* Wide table must scroll inside its own box, never the page. */
 .tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .tablewrap table { min-width: 620px; }
-
-/* Grey-on-grey was failing contrast at these sizes. */
-.faint { color: #8b94a3; }
-.dim   { color: #a8b0bd; }
 
 .deepsum { font-size: 13px; color: var(--dim); font-weight: 600; }
 details.deep { border-top: none; padding-top: 0; margin-top: 0; }
@@ -240,3 +238,9 @@ ul.tight { margin: 0 0 10px; padding-left: 18px; }
 ul.tight li { margin-bottom: 5px; }
 code { font-family: var(--mono); font-size: 12px; background: var(--panel-2);
        padding: 1px 5px; border-radius: 4px; }
+
+ol.runlist { margin: 12px 0 14px; padding-left: 20px; }
+ol.runlist li { margin-bottom: 12px; }
+.chip.run-right  { color: var(--active);   border-color: color-mix(in srgb, var(--active) 40%, transparent); }
+.chip.run-wrong  { color: var(--conflict); border-color: color-mix(in srgb, var(--conflict) 40%, transparent); }
+.chip.run-mixed  { color: var(--stale);    border-color: color-mix(in srgb, var(--stale) 40%, transparent); }

@@ -28,7 +28,10 @@ export function TimelineInput({
     <section className="panel">
       <h2>Timeline</h2>
       <p className="dim small">
-        One dated line per observation, <code>YYYY-MM-DD: what happened</code>.
+        <strong>The only part of this page that needs a model.</strong>{' '}
+        Everything above is deterministic and works with no key; reading prose
+        you paste does not. One dated line per observation,{' '}
+        <code>YYYY-MM-DD: what happened</code>.
         Paste anything; the model only nominates candidates, the engine decides
         what they mean.
       </p>
@@ -67,6 +70,7 @@ export function TimelineInput({
         </p>
       ) : null}
 
+      <div aria-live="polite">
       {status === 'no-key' ? (
         <div className="notice tail">
           <strong>Reading new text is off on this deployment.</strong>{' '}
@@ -80,6 +84,7 @@ export function TimelineInput({
       {status === 'error' ? (
         <div className="notice bad tail">{message}</div>
       ) : null}
+      </div>
 
       {recent.length > 0 ? (
         <details open>

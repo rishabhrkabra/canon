@@ -155,6 +155,23 @@ describe('checkPremise — the linter', () => {
     expect(r.explanation).not.toContain('line 3 replaced it');
   });
 
+  it('cites the most recent stint when a value held more than once', () => {
+    // A -> B -> A -> C. The assumption "A" almost certainly refers to the
+    // recent stint; dating it to the first one describes a period that ended
+    // three weeks earlier and reads as a different claim entirely.
+    const repeated = buildFacts([
+      c('Atlas', 'owner', 'A', '2026-07-01', 1),
+      c('Atlas', 'owner', 'B', '2026-07-10', 2),
+      c('Atlas', 'owner', 'A', '2026-07-20', 3),
+      c('Atlas', 'owner', 'C', '2026-07-30', 4),
+    ]).facts;
+    const r = checkPremise(repeated, p('Atlas', 'owner', 'A'));
+    expect(r.verdict).toBe('stale');
+    expect(r.explanation).toContain('2026-07-20');
+    expect(r.explanation).toContain('until 2026-07-30');
+    expect(r.explanation).not.toContain('from 2026-07-01');
+  });
+
   it('separates "never knew" from "knew, and it expired"', () => {
     const never = checkPremise(owners, p('Atlas', 'budget', '10L'));
     expect(never.verdict).toBe('unknown');

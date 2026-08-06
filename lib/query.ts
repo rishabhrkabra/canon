@@ -209,7 +209,12 @@ export function checkPremise(facts: readonly Fact[], premise: Premise): PremiseC
 
   // The headline case: the question assumes something that USED to be true.
   const siblings = siblingsOf(facts, premise.entity, premise.property);
-  const assumed = siblings.find((f) => matches(f.value, premise.assumedValue));
+  // The MOST RECENT stint of that value. A value can hold more than once
+  // (A → B → A → C), and citing the first stint dates the assumption to a
+  // period that ended long before the one the reader is thinking of.
+  const assumed = siblings
+    .filter((f) => matches(f.value, premise.assumedValue))
+    .toSorted((a, b) => (a.validFrom < b.validFrom ? 1 : -1))[0];
   const current = now.citations[0];
 
   if (!assumed) {

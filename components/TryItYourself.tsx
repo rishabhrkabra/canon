@@ -1,7 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { ALL_QUESTIONS_PROMPT, DEMO_QUESTIONS } from '../fixtures/demo-questions';
+import {
+  ALL_QUESTIONS_PROMPT,
+  DEMO_QUESTIONS,
+  RECORDED_RUN,
+} from '../fixtures/demo-questions';
 import { DOWNLOAD_FILENAME } from '../fixtures/demo-timeline';
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -22,7 +26,9 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         window.setTimeout(() => setState('idle'), 2400);
       }}
     >
-      {state === 'ok' ? 'Copied' : state === 'fail' ? 'Copy blocked — select them below' : label}
+      <span aria-live="polite">
+        {state === 'ok' ? 'Copied' : state === 'fail' ? 'Copy blocked — select them below' : label}
+      </span>
     </button>
   );
 }
@@ -68,6 +74,43 @@ export function TryItYourself() {
         confident. Nothing in the reply tells you which ones are safe to act on.
         That is the gap this fills.
       </div>
+
+      <details>
+        <summary>
+          What happened when I ran it — {RECORDED_RUN.model}, {RECORDED_RUN.date}
+        </summary>
+        <p className="dim small">
+          One conversation, one model, one day. Not a benchmark, and not a
+          claim about models in general — kept because a real result is worth
+          more than an assertion. Two of four right, one wrong, one that knew
+          the answer and did the wrong thing anyway.
+        </p>
+        <ol className="runlist">
+          {RECORDED_RUN.results.map((r) => {
+            const q = DEMO_QUESTIONS.find((x) => x.id === r.id);
+            return (
+              <li key={r.id}>
+                <span className={`chip run-${r.outcome}`}>
+                  {r.outcome === 'right'
+                    ? 'got it'
+                    : r.outcome === 'wrong'
+                      ? 'got it wrong'
+                      : 'knew, still did it'}
+                </span>{' '}
+                <span className="mono small">{q?.question}</span>
+                <p className="dim small tail">{r.what}</p>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="dim flush">
+          The first one is the one worth sitting with. The model had the right
+          answer and put it <em>below</em> the draft, as prose. A person reading
+          the whole reply catches it. An agent handed &ldquo;draft this
+          message&rdquo; takes the message. A verdict is machine-readable; a
+          caveat is not.
+        </p>
+      </details>
     </section>
   );
 }

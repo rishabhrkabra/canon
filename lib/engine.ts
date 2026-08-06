@@ -95,8 +95,12 @@ export function isValidCandidate(v: unknown): v is Candidate {
     typeof c.property === 'string' && c.property.trim().length > 0 &&
     typeof c.value === 'string' && c.value.trim().length > 0 &&
     isIsoDate(c.observedAt) &&
-    typeof c.sourceSpan === 'string' &&
-    typeof c.sourceLine === 'number' && Number.isFinite(c.sourceLine)
+    // A receipt must actually cite something. An empty span and a line number
+    // of 0, -3 or 1.5 are all "well-formed" to a loose check and all name no
+    // evidence — which is the failure this product exists to prevent.
+    typeof c.sourceSpan === 'string' && c.sourceSpan.trim().length > 0 &&
+    typeof c.sourceLine === 'number' && Number.isInteger(c.sourceLine) &&
+    c.sourceLine > 0
   );
 }
 
@@ -124,7 +128,11 @@ export function verifyReceipts(
       rejected.push({ candidate: c, reason: `cites line ${c.sourceLine}, which does not exist` });
       continue;
     }
-    if (c.sourceSpan.trim() && !norm(line).includes(norm(c.sourceSpan))) {
+    if (!c.sourceSpan.trim()) {
+      rejected.push({ candidate: c, reason: 'cites no text at all' });
+      continue;
+    }
+    if (!norm(line).includes(norm(c.sourceSpan))) {
       rejected.push({
         candidate: c,
         reason: `quotes "${c.sourceSpan}", which does not appear on line ${c.sourceLine}`,
@@ -241,7 +249,16 @@ export function applyCandidates(
       (f) => f.validFrom < D && (f.validUntil === undefined || D < f.validUntil),
     );
 
-    const agrees = inForce.find((f) => sameValue(f.value, c.value));
+    // Repeating one side of an unresolved contradiction is NOT corroboration —
+    // it is a resolution. If the record says both green and red on the 20th,
+    // then "green" on the 21st settles the present; treating it as another
+    // vote for the historical green leaves the pair conflicted forever.
+    const unresolvedConflict =
+      inForce.length > 1 || inForce.some((f) => f.status === 'conflicted');
+
+    const agrees = unresolvedConflict
+      ? undefined
+      : inForce.find((f) => sameValue(f.value, c.value));
     if (agrees) {
       agrees.corroborations += 1;
       records.push({
@@ -297,6 +314,14 @@ export function applyCandidates(
         factId: created.id,
         relatedFactId: inForce[0].id,
         reason: `Line ${c.sourceLine} describes ${D}, which falls inside what we already knew. "${inForce[0].value}" now ends on ${D}, "${c.value}" runs until ${successorStart}, and the current value is unchanged.`,
+      });
+    } else if (unresolvedConflict) {
+      records.push({
+        outcome: 'superseded',
+        candidate: c,
+        factId: created.id,
+        relatedFactId: inForce[0].id,
+        reason: `Line ${c.sourceLine} observed "${c.value}" on ${D}, after the unresolved ${inForce[0].validFrom} contradiction (${inForce.map((f) => `"${f.value}"`).join(' vs ')}). That settles the present as "${c.value}"; the contradiction stays on the record as history.`,
       });
     } else {
       records.push({
