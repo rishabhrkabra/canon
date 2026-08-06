@@ -1,5 +1,5 @@
 /**
- * AsOf — temporal queries and premise checking.
+ * Canon — temporal queries and premise checking.
  *
  * Three answers, not two. Most systems can say "X" or "I don't know". The one
  * that matters here is the third: **"I had evidence, and it is no longer
@@ -56,7 +56,12 @@ export function queryNow(
     };
   }
 
-  const conflicted = siblings.filter((f) => f.status === 'conflicted');
+  // Only an UNRESOLVED conflict blocks the current answer. A contradiction
+  // that a later observation settled is history — it stays visible when you
+  // query that date, but it must not poison the present forever.
+  const conflicted = siblings.filter(
+    (f) => f.status === 'conflicted' && f.validUntil === undefined,
+  );
   if (conflicted.length > 0) {
     return {
       ...base,

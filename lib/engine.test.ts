@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { applyCandidates, buildFacts, isValidCandidate } from './engine';
+import {
+  applyCandidates,
+  buildFacts,
+  isIsoDate,
+  isValidCandidate,
+  verifyReceipts,
+} from './engine';
 import type { Candidate } from './types';
 
 const c = (
@@ -115,6 +121,118 @@ describe('backfill — late evidence about the past', () => {
     expect(neha.status).toBe('active');       // present untouched
     expect(neha.validUntil).toBeUndefined();
     expect(neha.supersedes).toBe(jay.id);
+  });
+});
+
+describe('regressions — three ways the engine was wrong', () => {
+  // All three were found by an adversarial audit, reproduced as failing tests
+  // before anything was changed, and share one root cause: the engine judged a
+  // candidate against "the live fact" instead of "the fact in force on that
+  // candidate's own date".
+
+  it('a value that returns to an earlier value becomes current again', () => {
+    // Was: the second Jay observation matched the OLD superseded Jay fact and
+    // was swallowed as corroboration, leaving Neha current forever.
+    const { facts } = buildFacts([
+      c('Atlas', 'owner', 'Jay', '2026-07-01', 1),
+      c('Atlas', 'owner', 'Neha', '2026-07-28', 2),
+      c('Atlas', 'owner', 'Jay', '2026-08-10', 3),
+    ]);
+    const live = facts.filter((f) => f.validUntil === undefined);
+    expect(live).toHaveLength(1);
+    expect(live[0].value).toBe('Jay');
+    expect(live[0].validFrom).toBe('2026-08-10');
+    // The first stint is untouched history, not overwritten.
+    const firstStint = facts.find((f) => f.value === 'Jay' && f.validFrom === '2026-07-01')!;
+    expect(firstStint.validUntil).toBe('2026-07-28');
+    expect(firstStint.corroborations).toBe(1);
+  });
+
+  it('a second backfill lands inside the first instead of overlapping it', () => {
+    // Was: both backfilled facts closed at 2026-07-28, so two different values
+    // both claimed 20 July.
+    const first = buildFacts([c('Atlas', 'owner', 'Neha', '2026-07-28', 1)]).facts;
+    const { facts } = applyCandidates(first, [
+      c('Atlas', 'owner', 'Jay', '2026-07-01', 2),
+      c('Atlas', 'owner', 'Sam', '2026-07-15', 3),
+    ]);
+    const jay = facts.find((f) => f.value === 'Jay')!;
+    const sam = facts.find((f) => f.value === 'Sam')!;
+    const neha = facts.find((f) => f.value === 'Neha')!;
+
+    expect(jay.validFrom).toBe('2026-07-01');
+    expect(jay.validUntil).toBe('2026-07-15');   // closes where Sam begins
+    expect(sam.validFrom).toBe('2026-07-15');
+    expect(sam.validUntil).toBe('2026-07-28');   // closes where Neha begins
+    expect(neha.validUntil).toBeUndefined();     // present untouched
+
+    // The chain links to the real neighbours, not to whatever is current.
+    expect(jay.supersededBy).toBe(sam.id);
+    expect(sam.supersededBy).toBe(neha.id);
+
+    // No date is covered by two values at once.
+    for (const day of ['2026-07-05', '2026-07-20', '2026-08-01']) {
+      const covering = facts.filter(
+        (f) => f.validFrom <= day && (f.validUntil === undefined || day < f.validUntil),
+      );
+      expect(covering, `${day} covered by ${covering.length} facts`).toHaveLength(1);
+    }
+  });
+
+  it('a later observation resolves a conflict instead of it lasting forever', () => {
+    const { facts } = buildFacts([
+      c('Atlas', 'status', 'green', '2026-07-20', 1),
+      c('Atlas', 'status', 'red', '2026-07-20', 2),
+      c('Atlas', 'status', 'yellow', '2026-07-21', 3),
+    ]);
+    const yellow = facts.find((f) => f.value === 'yellow')!;
+    expect(yellow.validUntil).toBeUndefined();
+
+    // Both sides of the settled conflict are closed, and stay on the record.
+    for (const v of ['green', 'red']) {
+      const f = facts.find((x) => x.value === v)!;
+      expect(f.status).toBe('conflicted');
+      expect(f.validUntil).toBe('2026-07-21');
+    }
+  });
+
+  it('rejects dates that match the shape but are not real days', () => {
+    expect(isIsoDate('2026-02-30')).toBe(false);
+    expect(isIsoDate('2026-13-01')).toBe(false);
+    expect(isIsoDate('2026-04-31')).toBe(false);
+    expect(isIsoDate('2026-00-10')).toBe(false);
+    expect(isIsoDate('2026-02-29')).toBe(false); // 2026 is not a leap year
+    expect(isIsoDate('2028-02-29')).toBe(true);  // 2028 is
+    expect(isIsoDate('2026-08-07')).toBe(true);
+  });
+});
+
+describe('receipts must exist in the source', () => {
+  const timeline = '2026-07-01: Atlas owner is Jay\n2026-07-28: Atlas owner is Neha';
+
+  it('keeps candidates whose quote really appears on the line they cite', () => {
+    const { verified, rejected } = verifyReceipts(
+      [c('Atlas', 'owner', 'Jay', '2026-07-01', 1)].map((x) => ({
+        ...x, sourceSpan: 'Atlas owner is Jay',
+      })),
+      timeline,
+    );
+    expect(verified).toHaveLength(1);
+    expect(rejected).toHaveLength(0);
+  });
+
+  it('drops a fabricated quote, a missing line, and a mismatched date', () => {
+    const bad = [
+      { ...c('Atlas', 'owner', 'Jay', '2026-07-01', 1), sourceSpan: 'Atlas owner is Priya' },
+      { ...c('Atlas', 'owner', 'Jay', '2026-07-01', 99), sourceSpan: 'Atlas owner is Jay' },
+      { ...c('Atlas', 'owner', 'Neha', '2026-07-15', 2), sourceSpan: 'Atlas owner is Neha' },
+    ];
+    const { verified, rejected } = verifyReceipts(bad, timeline);
+    expect(verified).toHaveLength(0);
+    expect(rejected).toHaveLength(3);
+    expect(rejected[0].reason).toContain('does not appear');
+    expect(rejected[1].reason).toContain('does not exist');
+    expect(rejected[2].reason).toContain('not that date');
   });
 });
 

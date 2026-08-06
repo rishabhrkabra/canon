@@ -1,5 +1,5 @@
 /**
- * AsOf — core types.
+ * Canon — core types.
  *
  * Design rule that governs this whole file: **dates are ISO `YYYY-MM-DD`
  * strings, never Date objects.** Lexicographic comparison equals chronological

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { NoKeyError, generateJson } from '../../../lib/gemini';
 import { PREMISE_SYSTEM, premiseUserPrompt } from '../../../lib/prompts';
+import { rateLimit } from '../../../lib/ratelimit';
 import type { Premise } from '../../../lib/types';
 
 export const maxDuration = 30;
@@ -21,6 +22,14 @@ function isValidPremise(v: unknown): v is Premise {
  * job, not the model's: this route returns premises with no verdicts attached.
  */
 export async function POST(req: Request) {
+  const gate = rateLimit(req);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { code: 'RATE_LIMITED', error: gate.message },
+      { status: 429, headers: { 'retry-after': String(gate.retryAfter) } },
+    );
+  }
+
   let question: unknown;
   let known: unknown;
   try {

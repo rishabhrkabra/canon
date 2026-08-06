@@ -3,6 +3,7 @@
 import { useReducer } from 'react';
 import { demoState, reducer } from '../lib/state';
 import { isValidCandidate } from '../lib/engine';
+import { ActionGate } from './ActionGate';
 import { ConflictBin } from './ConflictBin';
 import { FactsTable } from './FactsTable';
 import { QueryPanel } from './QueryPanel';
@@ -13,14 +14,15 @@ import { TryItYourself } from './TryItYourself';
  * The only stateful component. Everything below it is a pure render of the
  * engine's output — no component computes truth, they only display it.
  *
- * Order is the argument: watch your own AI get it wrong, see the same
- * questions answered here, and only then look at the machinery. Anyone who
- * stops after the first two sections has still seen the point.
+ * Order is the argument. The gate comes first because it is the product:
+ * something a reviewer can type into and get a verdict from in ten seconds,
+ * with no key and no setup. The proof they run in their own AI comes second.
+ * The machinery is last, for anyone who wants to check the working.
  */
-export function AsOfApp() {
+export function CanonApp() {
   const [state, dispatch] = useReducer(reducer, undefined, demoState);
 
-  async function extract() {
+  async function extract(mode: 'merge' | 'replace') {
     dispatch({ type: 'extractStart' });
     try {
       const res = await fetch('/api/extract', {
@@ -48,11 +50,14 @@ export function AsOfApp() {
         dispatch({
           type: 'extractFailed',
           status: 'error',
-          message: 'No usable observations found in that text.',
+          message:
+            body?.dropped > 0
+              ? `Every extracted observation failed verification (${body.dropped} dropped) — none of them could be traced back to a line in the text.`
+              : 'No usable observations found in that text.',
         });
         return;
       }
-      dispatch({ type: 'apply', candidates });
+      dispatch({ type: 'apply', candidates, mode });
     } catch {
       dispatch({
         type: 'extractFailed',
@@ -64,6 +69,8 @@ export function AsOfApp() {
 
   return (
     <>
+      <ActionGate facts={state.facts} />
+
       <TryItYourself />
 
       <QueryPanel
@@ -76,9 +83,9 @@ export function AsOfApp() {
         <div className="steptag">How it knew</div>
         <h2 className="big">It kept every version, not just the latest</h2>
         <p className="lead">
-          Nothing gets overwritten. Each value is stored with the dates it
+          Nothing is overwritten. Each value is stored with the dates it
           applied, so &ldquo;what was true in July&rdquo; is a lookup, not a
-          guess. Pick a date to see the file as it stood that day.
+          guess. Pick a date to see the record as it stood that day.
         </p>
       </section>
 
@@ -95,6 +102,7 @@ export function AsOfApp() {
         status={state.extract}
         message={state.message}
         records={state.records}
+        isDemo={state.isDemo}
         onChange={(timeline) => dispatch({ type: 'setTimeline', timeline })}
         onExtract={extract}
         onLoadDemo={() => dispatch({ type: 'loadDemo' })}

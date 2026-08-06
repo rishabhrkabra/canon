@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { isValidCandidate } from '../../../lib/engine';
+import { isValidCandidate, verifyReceipts } from '../../../lib/engine';
 import { NoKeyError, generateJson } from '../../../lib/gemini';
 import { EXTRACT_SYSTEM, extractUserPrompt } from '../../../lib/prompts';
+import { rateLimit } from '../../../lib/ratelimit';
 
 /**
  * Bounded so a hung model call fails visibly instead of holding the function
@@ -11,6 +12,14 @@ export const maxDuration = 30;
 
 /** Timeline text -> candidate observations. The engine decides what they mean. */
 export async function POST(req: Request) {
+  const gate = rateLimit(req);
+  if (!gate.ok) {
+    return NextResponse.json(
+      { code: 'RATE_LIMITED', error: gate.message },
+      { status: 429, headers: { 'retry-after': String(gate.retryAfter) } },
+    );
+  }
+
   let timeline: unknown;
   try {
     ({ timeline } = await req.json());
@@ -32,24 +41,34 @@ export async function POST(req: Request) {
     const raw = await generateJson(EXTRACT_SYSTEM, extractUserPrompt(timeline));
     const list = (raw as { candidates?: unknown })?.candidates;
 
-    // The model is untrusted input, exactly like a form post. Anything
-    // malformed is dropped here and never reaches truth state.
-    const candidates = Array.isArray(list) ? list.filter(isValidCandidate) : [];
+    // Two gates, both mandatory. The first rejects anything malformed — the
+    // model is untrusted input, exactly like a form post. The second proves
+    // each receipt is real: the line exists, the quote is on it, the date
+    // matches. Well-formed output is not the same as true output, and a
+    // citation nobody checked is the failure this product exists to prevent.
+    const wellFormed = Array.isArray(list) ? list.filter(isValidCandidate) : [];
+    const { verified, rejected } = verifyReceipts(wellFormed, timeline);
 
     return NextResponse.json({
-      candidates,
-      dropped: Array.isArray(list) ? list.length - candidates.length : 0,
+      candidates: verified,
+      dropped:
+        (Array.isArray(list) ? list.length - wellFormed.length : 0) + rejected.length,
+      rejected: rejected.map((r) => ({
+        line: r.candidate.sourceLine,
+        value: r.candidate.value,
+        reason: r.reason,
+      })),
     });
   } catch (err) {
     if (err instanceof NoKeyError) {
-      // Expected on a deployment with no key. Not an error — the demo path
-      // is designed to work in exactly this state.
+      // Expected on a deployment with no key. Not an error — everything except
+      // this one route is designed to work in exactly this state.
       return NextResponse.json(
         { code: 'NO_KEY', error: err.message },
         { status: 503 },
       );
     }
-    // Message only. The pasted timeline is the user's content and the key is a
+    // Message only. The pasted text is the user's content and the key is a
     // secret; neither belongs in a log line.
     console.error('[extract] failed:', err instanceof Error ? err.message : err);
     return NextResponse.json(

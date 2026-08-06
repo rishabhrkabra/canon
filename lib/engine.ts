@@ -1,5 +1,5 @@
 /**
- * AsOf — the deterministic truth engine.
+ * Canon — the deterministic truth engine.
  *
  * THIS FILE IS THE PRODUCT. The language model's entire job is to nominate
  * candidate observations from text. Every decision about what is *true* — what
@@ -7,16 +7,25 @@
  * happens here, in code you can read and test. No model output reaches truth
  * state without passing through these rules.
  *
- * The four rules, for one (entity, property) pair:
+ * The model in one sentence: **an observation of value V on date D is a claim
+ * about what held on D**, so it is judged against whatever the engine already
+ * believes held on D — not against whatever happens to be current.
  *
- *   same value                    → DUPLICATE   corroborate, don't insert
- *   different value, later date   → SUPERSEDE   old closes at the new date
- *   different value, same date    → CONFLICT    both suspect; refuse to answer
- *   different value, earlier date → BACKFILL    insert into history, born closed
+ * That one framing decides all five outcomes:
  *
- * The last one is the rule most systems get wrong. Evidence does not arrive in
- * chronological order. Learning on Tuesday what was true last Monday must
- * change *history*, not the present.
+ *   nothing known for that pair        → ADD
+ *   the fact in force on D has value V → DUPLICATE   corroborate, don't insert
+ *   a fact starts exactly on D, V≠     → CONFLICT    both suspect; refuse
+ *   the fact in force on D has V′≠V    → SUPERSEDE   it closes on D, V takes over
+ *   D precedes everything we know      → BACKFILL    insert history, born closed
+ *
+ * Supersede and backfill are the same operation seen from different points on
+ * the timeline: a value starts on D and runs until the next thing we know
+ * about. Writing them as one rule is what makes late-arriving evidence safe —
+ * and an earlier version of this file, which reasoned about "the live fact"
+ * instead of "the fact in force on D", got three cases wrong because of it:
+ * a value returning to a previous value was silently swallowed as
+ * corroboration, and two backfills in a row left overlapping intervals.
  */
 
 import type {
@@ -41,9 +50,27 @@ export function factId(c: Candidate): string {
   return `f_${hash(`${c.entity}|${c.property}|${c.value}|${c.observedAt}`)}`;
 }
 
-const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const ISO_SHAPE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * A real calendar day, not merely digits in the right places. `2026-02-30`
+ * matches the shape and does not exist; letting it through would put a fact on
+ * a day that never happened.
+ *
+ * This is the one place a Date object is allowed. It is used to count days in
+ * a month, never to compare or render — comparison stays lexicographic on the
+ * string, so no timezone can shift a fact onto the wrong day.
+ */
 export function isIsoDate(v: unknown): v is IsoDate {
-  return typeof v === 'string' && ISO.test(v);
+  if (typeof v !== 'string') return false;
+  const m = ISO_SHAPE.exec(v);
+  if (!m) return false;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  if (month < 1 || month > 12 || day < 1) return false;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return day <= daysInMonth;
 }
 
 /** Case- and whitespace-insensitive key. Entity names are canonical by design. */
@@ -71,6 +98,49 @@ export function isValidCandidate(v: unknown): v is Candidate {
     typeof c.sourceSpan === 'string' &&
     typeof c.sourceLine === 'number' && Number.isFinite(c.sourceLine)
   );
+}
+
+/**
+ * Prove each receipt actually exists in the source text.
+ *
+ * Type-checking `sourceLine` and `sourceSpan` only proves the model returned
+ * strings of the right shape. It does not prove the line exists, or that the
+ * quoted words appear on it. A citation that cannot be found in the source is
+ * the same failure this product exists to prevent — so candidates that fail
+ * are dropped, with a reason, rather than displayed as evidence.
+ */
+export function verifyReceipts(
+  candidates: readonly Candidate[],
+  sourceText: string,
+): { verified: Candidate[]; rejected: { candidate: Candidate; reason: string }[] } {
+  const lines = sourceText.split('\n');
+  const verified: Candidate[] = [];
+  const rejected: { candidate: Candidate; reason: string }[] = [];
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  for (const c of candidates) {
+    const line = lines[c.sourceLine - 1];
+    if (line === undefined) {
+      rejected.push({ candidate: c, reason: `cites line ${c.sourceLine}, which does not exist` });
+      continue;
+    }
+    if (c.sourceSpan.trim() && !norm(line).includes(norm(c.sourceSpan))) {
+      rejected.push({
+        candidate: c,
+        reason: `quotes "${c.sourceSpan}", which does not appear on line ${c.sourceLine}`,
+      });
+      continue;
+    }
+    if (!line.trimStart().startsWith(c.observedAt)) {
+      rejected.push({
+        candidate: c,
+        reason: `dated ${c.observedAt}, but line ${c.sourceLine} is not that date`,
+      });
+      continue;
+    }
+    verified.push(c);
+  }
+  return { verified, rejected };
 }
 
 function newFact(c: Candidate, over: Partial<Fact> = {}): Fact {
@@ -116,97 +186,127 @@ export function applyCandidates(
   for (const c of ordered) {
     const k = key(c.entity, c.property);
     const siblings = facts.filter((f) => key(f.entity, f.property) === k);
+    const D = c.observedAt;
 
-    // ---- DUPLICATE: the same claim again. Corroboration, not a new fact.
-    const same = siblings.find((f) => sameValue(f.value, c.value));
-    if (same) {
-      same.corroborations += 1;
+    // ---- ADD: nothing has ever been claimed about this pair.
+    if (siblings.length === 0) {
+      const created = newFact(c);
+      facts.push(created);
       records.push({
-        outcome: 'duplicate',
+        outcome: 'added',
         candidate: c,
-        relatedFactId: same.id,
-        reason: `Already recorded from line ${same.sourceLine}; counted as corroboration (${same.corroborations} observations).`,
+        factId: created.id,
+        reason: `First observation of ${c.entity} · ${c.property}, from line ${c.sourceLine}.`,
       });
       continue;
     }
 
-    // ---- CONFLICT: a different value observed on the SAME day.
-    // Nothing in the evidence orders these, so the engine refuses to pick.
-    // Note it checks live (non-superseded) siblings only — a value that was
-    // already replaced cannot newly conflict with anything.
-    const sameDay = siblings.find(
-      (f) => f.observedAt === c.observedAt && f.status !== 'superseded',
-    );
-    if (sameDay) {
+    // ---- Same-day claims. Nothing in the evidence orders these.
+    const sameDay = siblings.filter((f) => f.validFrom === D);
+    if (sameDay.length > 0) {
+      const agrees = sameDay.find((f) => sameValue(f.value, c.value));
+      if (agrees) {
+        agrees.corroborations += 1;
+        records.push({
+          outcome: 'duplicate',
+          candidate: c,
+          relatedFactId: agrees.id,
+          reason: `Already recorded from line ${agrees.sourceLine}; counted as corroboration (${agrees.corroborations} observations).`,
+        });
+        continue;
+      }
       const created = newFact(c, {
         status: 'conflicted',
-        conflictsWith: [sameDay.id],
+        validUntil: sameDay[0].validUntil,
+        conflictsWith: sameDay.map((f) => f.id),
       });
-      sameDay.status = 'conflicted';
-      sameDay.conflictsWith = [...(sameDay.conflictsWith ?? []), created.id];
+      for (const f of sameDay) {
+        f.status = 'conflicted';
+        f.conflictsWith = [...(f.conflictsWith ?? []), created.id];
+      }
       facts.push(created);
       records.push({
         outcome: 'conflict',
         candidate: c,
         factId: created.id,
-        relatedFactId: sameDay.id,
-        reason: `Line ${c.sourceLine} says "${c.value}" but line ${sameDay.sourceLine} says "${sameDay.value}", both observed ${c.observedAt}. Nothing orders them, so neither is treated as true.`,
+        relatedFactId: sameDay[0].id,
+        reason: `Line ${c.sourceLine} says "${c.value}" but line ${sameDay[0].sourceLine} says "${sameDay[0].value}", both observed ${D}. Nothing orders them, so neither is treated as true.`,
       });
       continue;
     }
 
-    // The newest thing we currently believe for this (entity, property).
-    const live = siblings
-      .filter((f) => f.status === 'active')
-      .sort((a, b) => (a.validFrom < b.validFrom ? 1 : -1))[0];
+    // ---- What the engine currently believes held on D. More than one only
+    // when D falls inside an unresolved conflict, which is why this is a list.
+    const inForce = siblings.filter(
+      (f) => f.validFrom < D && (f.validUntil === undefined || D < f.validUntil),
+    );
 
-    // ---- SUPERSEDE: a different, later value replaces the live one.
-    if (live && c.observedAt > live.validFrom) {
-      const created = newFact(c, { supersedes: live.id });
-      live.status = 'superseded';
-      live.validUntil = c.observedAt; // exclusive: not true on the changeover day
-      live.supersededBy = created.id;
-      facts.push(created);
+    const agrees = inForce.find((f) => sameValue(f.value, c.value));
+    if (agrees) {
+      agrees.corroborations += 1;
       records.push({
-        outcome: 'superseded',
+        outcome: 'duplicate',
         candidate: c,
-        factId: created.id,
-        relatedFactId: live.id,
-        reason: `"${live.value}" held from ${live.validFrom} until ${c.observedAt}, when line ${c.sourceLine} replaced it with "${c.value}".`,
+        relatedFactId: agrees.id,
+        reason: `Same value as line ${agrees.sourceLine}, still holding on ${D}; counted as corroboration (${agrees.corroborations} observations).`,
       });
       continue;
     }
 
-    // ---- BACKFILL: evidence about the PAST, arriving late.
-    // It is inserted already closed — it was true then, and the value we
-    // already hold took over at its own start date. History changes; now does not.
-    if (live && c.observedAt < live.validFrom) {
-      const created = newFact(c, {
-        status: 'superseded',
-        validUntil: live.validFrom,
-        supersededBy: live.id,
-      });
-      live.supersedes = created.id;
-      facts.push(created);
+    // The next thing we already know about, if any. The new value runs until
+    // then — this is what makes a second backfill land in the right slot
+    // instead of overlapping the first.
+    const laterStarts = siblings
+      .filter((f) => f.validFrom > D)
+      .map((f) => f.validFrom)
+      .sort();
+    const successorStart: IsoDate | undefined = laterStarts[0];
+    const successors = successorStart
+      ? siblings.filter((f) => f.validFrom === successorStart)
+      : [];
+
+    const created = newFact(c, {
+      status: successorStart ? 'superseded' : 'active',
+      validUntil: successorStart,
+      supersedes: inForce[0]?.id,
+      supersededBy: successors[0]?.id,
+    });
+
+    // Everything that used to cover D now stops there.
+    for (const f of inForce) {
+      f.validUntil = D;
+      if (f.status !== 'conflicted') f.status = 'superseded';
+      f.supersededBy = created.id;
+    }
+    for (const s of successors) s.supersedes = created.id;
+
+    facts.push(created);
+
+    if (inForce.length === 0) {
       records.push({
         outcome: 'backfilled',
         candidate: c,
         factId: created.id,
-        relatedFactId: live.id,
-        reason: `Line ${c.sourceLine} describes ${c.observedAt}, earlier than what we already knew. Recorded as history: "${c.value}" held until ${live.validFrom}. The current value is unchanged.`,
+        relatedFactId: successors[0]?.id,
+        reason: `Line ${c.sourceLine} describes ${D}, earlier than anything already recorded. Filed as history: "${c.value}" held until ${successorStart}. The current value is unchanged.`,
       });
-      continue;
+    } else if (successorStart) {
+      records.push({
+        outcome: 'backfilled',
+        candidate: c,
+        factId: created.id,
+        relatedFactId: inForce[0].id,
+        reason: `Line ${c.sourceLine} describes ${D}, which falls inside what we already knew. "${inForce[0].value}" now ends on ${D}, "${c.value}" runs until ${successorStart}, and the current value is unchanged.`,
+      });
+    } else {
+      records.push({
+        outcome: 'superseded',
+        candidate: c,
+        factId: created.id,
+        relatedFactId: inForce[0].id,
+        reason: `"${inForce[0].value}" held from ${inForce[0].validFrom} until ${D}, when line ${c.sourceLine} replaced it with "${c.value}".`,
+      });
     }
-
-    // ---- ADD: first thing we have ever heard about this pair.
-    const created = newFact(c);
-    facts.push(created);
-    records.push({
-      outcome: 'added',
-      candidate: c,
-      factId: created.id,
-      reason: `First observation of ${c.entity} · ${c.property}, from line ${c.sourceLine}.`,
-    });
   }
 
   return { facts, records };

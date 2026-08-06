@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { holdsOn } from '../lib/query';
 import type { Fact, IsoDate } from '../lib/types';
 
@@ -18,12 +19,19 @@ export function FactsTable({
   asOf: IsoDate | '';
   onAsOf: (d: IsoDate | '') => void;
 }) {
+  const [showHistory, setShowHistory] = useState(false);
   // Every day on which some value started applying — the only dates where the
   // table looks different, so the only ones worth offering as jumps.
   const changeDates = [...new Set(facts.map((f) => f.validFrom))].toSorted();
 
   const settled = facts.filter((f) => f.status !== 'conflicted');
-  const shown = asOf ? settled.filter((f) => holdsOn(f, asOf)) : settled;
+  // Default is what holds NOW. Showing superseded rows under a "now" heading
+  // was quietly wrong — history is a separate, deliberate view.
+  const shown = asOf
+    ? settled.filter((f) => holdsOn(f, asOf))
+    : showHistory
+      ? settled
+      : settled.filter((f) => f.validUntil === undefined);
   // Entity first: with more than one project in play, interleaving them by
   // property makes the table unreadable.
   const ordered = shown.toSorted(
@@ -36,11 +44,16 @@ export function FactsTable({
   return (
     <section className="panel">
       <div className="row spread">
-        <h2 className="flush">Facts</h2>
+        <h2 className="flush">{asOf ? `As of ${asOf}` : showHistory ? 'Every version' : 'True right now'}</h2>
         <div className="row">
-          <label className="faint small" htmlFor="asof">view as of</label>
+          {asOf ? null : (
+            <button className="tiny" aria-pressed={showHistory} onClick={() => setShowHistory((v) => !v)}>
+              {showHistory ? 'show only current' : 'show every version'}
+            </button>
+          )}
+          <label className="faint small" htmlFor="canon">view as of</label>
           <input
-            id="asof"
+            id="canon"
             className="dateinput"
             type="date"
             value={asOf}
@@ -71,10 +84,11 @@ export function FactsTable({
       {ordered.length === 0 ? (
         <p className="dim">
           {facts.length === 0
-            ? 'No evidence yet — load the demo timeline or paste your own.'
+            ? 'No evidence yet — load the demo log or paste your own.'
             : `Nothing was known on ${asOf}.`}
         </p>
       ) : (
+        <div className="tablewrap">
         <table>
           <thead>
             <tr>
@@ -108,6 +122,7 @@ export function FactsTable({
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {asOf ? (

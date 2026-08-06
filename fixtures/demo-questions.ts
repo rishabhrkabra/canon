@@ -1,6 +1,6 @@
 /**
  * The four questions, used in both halves of the demo: the reviewer pastes
- * them into their own AI first, then asks AsOf the same ones.
+ * them into their own AI first, then asks Canon the same ones.
  *
  * There used to be a `naiveAnswer` field here holding hand-written examples of
  * what a system without temporal checks returns. It is gone on purpose. I
@@ -27,7 +27,7 @@ export interface DemoQuestion {
   premises?: Premise[];
   /** For direct queries. */
   query?: { entity: string; property: string; asOf?: string };
-  /** What AsOf offers instead once the stale premises are corrected. */
+  /** What Canon offers instead once the stale premises are corrected. */
   correctedDraft?: string;
   /** What to look for in the other AI's answer. */
   watchFor: string;

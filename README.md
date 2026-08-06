@@ -1,18 +1,18 @@
-# AsOf
+# Canon
 
-**A temporal memory linter for AI agents.**
+**Stop your agent acting on facts that stopped being true.**
 
 Agents don't only make things up. They act — confidently, fluently, with
 citations — on facts that *used to be* true. Nothing about that output looks
 like a hallucination, which is why it survives most checks.
 
-AsOf is not a memory store. It's the linter you bolt onto one. A language model
+Canon is not a memory store. It's the linter you bolt onto one. A language model
 nominates candidate facts; a deterministic engine owns what is true; assumptions
 that have expired get rejected with the evidence that replaced them.
 
 > Built independently for the Razorpay AI Builders challenge, using synthetic
-> data and no employer materials. "Project Atlas" and everyone in it are
-> invented.
+> data and no employer materials. "Project Atlas", "Project Borealis" and
+> everyone in them are invented.
 
 ---
 
@@ -20,10 +20,10 @@ that have expired get rejected with the evidence that replaced them.
 
 The deployed page opens with a two-minute experiment rather than a pitch:
 download `public/project-atlas-log.md`, upload it to whichever AI you already
-use, and ask four questions. Then ask AsOf the same four.
+use, and ask four questions. Then ask Canon the same four.
 
 The comparison is deliberately **not** something I wrote. An earlier version of
-this page had a "without AsOf" column filled with hand-written examples of what
+this page had a "without Canon" column filled with hand-written examples of what
 a naive system returns — I wrote both sides of that, which is not evidence of
 anything. Running the questions against your own model produces a before-state
 I did not author, and the file you upload is byte-identical to the one the app
@@ -51,10 +51,21 @@ This is a measured weakness, not a hypothetical one:
   targets the same gap — agent memory that tracks state over time rather than
   storing facts as if they were permanent.
 
-Existing memory layers (Graphiti, Zep, and the rest of that category) are
-*stores*. They solve recall. AsOf solves **validity**: not "what do I know
-about Atlas" but "is what I know still usable, and how would I know if it
-weren't."
+**Where Canon sits, stated accurately.** An earlier draft of this README
+claimed that existing memory layers only solve recall and that temporal
+validity was the differentiator. That was wrong, and worth correcting rather
+than quietly deleting: [Zep](https://help.getzep.com/concepts) and
+[Graphiti](https://github.com/getzep/graphiti) already model bi-temporal
+validity, edge invalidation, and point-in-time queries. Building a temporal
+store is not a novel claim.
+
+What Canon does that a store does not is **gate an action**. A store answers
+"what is true about Atlas." Canon takes the thing you are about to *do* —
+"remind Jay about the 15 August launch" — pulls the claims hiding inside it,
+checks each one against when it was true, and returns `ALLOW`,
+`BLOCK_STALE`, `BLOCK_CONFLICT` or `NEEDS_EVIDENCE` with the receipt that
+settles it. The temporal engine is the substrate; the verdict is the product.
+It is a linter you point at an agent's next move, not a database you query.
 
 ## Three answers, not two
 
@@ -71,34 +82,70 @@ product:
 A system that can't tell *never knew* from *knew, and it expired* will act on
 expired facts with full confidence. That distinction is the whole design.
 
-## How it works
+## The gate
+
+```
+proposed action:  "Remind Jay that Atlas launches on 15 August."
+   ↓  find the claims hiding inside it
+premises:         Atlas.owner = "Jay Menon"   Atlas.launch = "2026-08-15"
+   ↓  check each against WHEN it was true
+verdict:          BLOCK_STALE
+                  owner replaced 2026-07-28 by line 11 → Neha Rao
+                  launch moved twice, now 2026-09-19 → line 12
+corrected:        "Remind Neha Rao that Atlas launches on 2026-09-19."
+```
+
+| Verdict | When |
+|---|---|
+| `ALLOW` | Every claim still holds, each with its receipt |
+| `BLOCK_STALE` | Something was true and has been replaced |
+| `BLOCK_CONFLICT` | The evidence contradicts itself; no value can be confirmed |
+| `NEEDS_EVIDENCE` | Nothing here is on record — silence isn't agreement |
+
+The gate runs **entirely in the browser with no model and no network**. It finds
+claims by matching values already on record, including dates written the way
+people write them ("15 August", "Aug 15", "15/08/2026"). When an action names a
+project, only that project's record is checked — so someone who changed teams
+isn't flagged on the project they actually run now.
+
+Its honest limit, stated in the UI as well as here: it cannot read an
+assumption that never names anything on record. "Chase the usual person about
+this" returns `NEEDS_EVIDENCE`, not approval. A language model widens what gets
+*spotted*; it never decides the verdict.
+
+## How the engine works
 
 ```
 timeline text
    ↓  (LLM — nominate only)
 candidates {entity, property, value, observedAt, sourceSpan, sourceLine}
-   ↓  (validation — malformed candidates are dropped, never coerced)
+   ↓  shape validation — malformed candidates dropped, never coerced
+   ↓  receipt verification — line exists, quote is on it, date matches
 deterministic engine
    ↓
 fact table with half-open validity intervals [validFrom, validUntil)
    ↓
-queries: now · as-of <date> · premise checks
+queries: now · as-of <date> · premise checks · the gate
 ```
 
 **The model's entire job is to nominate candidates.** It never decides what is
-true, what supersedes what, or what conflicts. Those are four rules in tested
-code, applied per `(entity, property)` pair:
+true, what supersedes what, or what conflicts.
 
-| Incoming candidate | Outcome |
+One rule decides everything: **an observation of value V on date D is a claim
+about what held on D**, so it is judged against whatever the engine already
+believes held on D — never against whatever happens to be current.
+
+| Situation on D | Outcome |
 |---|---|
-| Same value | **duplicate** — corroborate, don't insert |
-| Different value, later date | **supersede** — old value closes at the new date |
-| Different value, same date | **conflict** — both suspect, refuse to answer |
-| Different value, earlier date | **backfill** — insert into history, born closed |
+| Nothing known for that pair | **add** |
+| The fact in force on D has value V | **duplicate** — corroborate, don't insert |
+| A fact starts exactly on D with a different value | **conflict** — both suspect, refuse |
+| The fact in force on D has a different value | **supersede** — it closes on D, V takes over |
+| D precedes everything known | **backfill** — insert history, born closed |
 
-The last rule is the one most systems get wrong. Evidence doesn't arrive in
-chronological order. Learning on Tuesday what was true last Monday must change
-*history*, not the present.
+Supersede and backfill are the same operation seen from different points on the
+timeline: a value starts on D and runs until the next thing already known.
+Writing them as one rule is what makes late-arriving evidence safe.
 
 ## Design decisions
 
@@ -123,23 +170,51 @@ an assumed fact's end date with the current fact's line number describes a
 handover that never happened. Caught during browser verification; pinned by a
 test.
 
+## Three bugs an audit found, and what they were
+
+An adversarial audit broke the engine three ways. Each was reproduced as a
+failing test *before* anything was changed, and each now has a regression test.
+They shared one root cause, which is why the fix was a reframing rather than
+three patches: the engine judged a candidate against **the live fact** instead
+of **the fact in force on that candidate's own date**.
+
+1. **A value returning to an earlier value was silently swallowed.**
+   Jay → Neha → Jay left Neha current, because the second Jay observation
+   matched the old superseded Jay fact and was counted as corroboration.
+2. **Two backfills produced overlapping intervals.** Importing 28 July, then
+   1 July, then 15 July left two different values both claiming 20 July.
+   A backfill closed at the *current* fact's start instead of at the next thing
+   known.
+3. **A resolved conflict poisoned the present forever.** Green and red clash on
+   20 July, yellow settles it on 21 July — and "what is the status now" still
+   answered `conflicted`, because any historical conflict counted.
+
+Two more, in the same pass: `2026-02-30` passed date validation (regex shape,
+no calendar check), and receipts were type-checked but never verified against
+the source text.
+
 ## Works with no API key
 
 The deployed demo is **fully functional with zero environment variables and
-makes zero network calls**. Candidates for the demo timeline are pre-extracted
-into `fixtures/`, so every panel — facts table, time-travel, conflict bin,
-premise checks, comparison — runs offline.
+makes zero network calls**. The gate, every query, the time travel and the
+conflict bin are all deterministic; the demo log's candidates are pre-extracted
+into `fixtures/`.
 
 This is a design requirement, not a convenience. The model is a replaceable
-front-end to the engine, so the demo shouldn't depend on it being reachable.
-Live extraction of *novel* text needs `GEMINI_API_KEY`; without it the UI says
-so plainly and everything else keeps working.
+front-end to the engine, so nothing a reviewer needs to see should depend on it
+being reachable. Exactly one feature needs `GEMINI_API_KEY` — reading *new*
+prose you paste — and without it the UI says so plainly instead of failing
+quietly.
+
+Both model-backed routes are rate limited (8/min per caller). That limiter is
+in-process, so it is a speed bump rather than a quota system — a real
+deployment moves it to Redis. Written down rather than left implied.
 
 ## Running it
 
 ```bash
 npm install
-npm test        # 37 tests: engine, queries, demo end-to-end
+npm test        # 58 tests: engine, queries, the gate, demo end-to-end
 npm run dev
 ```
 

@@ -8,6 +8,7 @@ export function TimelineInput({
   status,
   message,
   records,
+  isDemo,
   onChange,
   onExtract,
   onLoadDemo,
@@ -16,8 +17,9 @@ export function TimelineInput({
   status: ExtractStatus;
   message: string | null;
   records: ApplyRecord[];
+  isDemo: boolean;
   onChange: (v: string) => void;
-  onExtract: () => void;
+  onExtract: (mode: 'merge' | 'replace') => void;
   onLoadDemo: () => void;
 }) {
   const recent = records.slice(-8).toReversed();
@@ -39,18 +41,39 @@ export function TimelineInput({
       />
 
       <div className="row end tail">
-        <button onClick={onLoadDemo}>Load demo</button>
-        <button className="primary" onClick={onExtract} disabled={status === 'working' || !timeline.trim()}>
-          {status === 'working' ? 'Extracting…' : 'Extract facts'}
+        <button onClick={onLoadDemo}>Reset to demo log</button>
+        <button
+          onClick={() => onExtract('replace')}
+          disabled={status === 'working' || !timeline.trim()}
+          title="Discard the current record and build a fresh one from this text"
+        >
+          Start a new record
+        </button>
+        <button
+          className="primary"
+          onClick={() => onExtract('merge')}
+          disabled={status === 'working' || !timeline.trim()}
+          title="Fold this text into the record already loaded"
+        >
+          {status === 'working' ? 'Reading…' : 'Add to current record'}
         </button>
       </div>
 
+      {isDemo ? (
+        <p className="faint small tail">
+          The demo log is loaded. Pasting your own text and choosing
+          <strong> Add to current record</strong> would mix it with Project
+          Atlas — use <strong>Start a new record</strong> instead.
+        </p>
+      ) : null}
+
       {status === 'no-key' ? (
         <div className="notice tail">
-          <strong>Live extraction is off.</strong>{' '}
-          {message ?? 'No GEMINI_API_KEY is configured on this deployment.'} The
-          demo timeline below is pre-extracted and runs entirely offline — every
-          panel on this page works without a model.
+          <strong>Reading new text is off on this deployment.</strong>{' '}
+          {message ?? 'No GEMINI_API_KEY is configured.'} This is the only
+          feature that needs a model. Everything else on this page — the action
+          gate, the queries, the time travel — is deterministic and already
+          working in front of you.
         </div>
       ) : null}
 

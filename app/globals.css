@@ -86,6 +86,38 @@ ol.qsteps li::marker { color: var(--faint); font-size: 12px; }
 .blocked { color: var(--conflict); font-weight: 600; margin-bottom: 10px; }
 .answerval { font-size: 15px; }
 
+/* --- the gate verdict --- */
+.actionbox { min-height: 74px; font-size: 13.5px; }
+
+.verdict {
+  border: 1px solid var(--line); border-left-width: 4px;
+  border-radius: 8px; padding: 12px 14px; margin: 16px 0 12px;
+  background: var(--panel-2);
+}
+.vhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vlabel { font-size: 16px; font-weight: 600; }
+.vcode { font-family: var(--mono); font-size: 11px; color: var(--faint);
+         background: transparent; border: 1px solid var(--line);
+         border-radius: 4px; padding: 1px 6px; }
+.vhead-sub { margin: 6px 0 0; color: var(--dim); font-size: 13.5px; }
+
+.v-allow    { border-left-color: var(--active); }
+.v-allow    .vlabel { color: var(--active); }
+.v-stale    { border-left-color: var(--stale); }
+.v-stale    .vlabel { color: var(--stale); }
+.v-conflict { border-left-color: var(--conflict); }
+.v-conflict .vlabel { color: var(--conflict); }
+.v-unknown  { border-left-color: var(--faint); }
+.v-unknown  .vlabel { color: var(--dim); }
+
+/* Wide table must scroll inside its own box, never the page. */
+.tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tablewrap table { min-width: 620px; }
+
+/* Grey-on-grey was failing contrast at these sizes. */
+.faint { color: #8b94a3; }
+.dim   { color: #a8b0bd; }
+
 .deepsum { font-size: 13px; color: var(--dim); font-weight: 600; }
 details.deep { border-top: none; padding-top: 0; margin-top: 0; }
 .dim { color: var(--dim); }

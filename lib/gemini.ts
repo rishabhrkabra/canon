@@ -41,8 +41,11 @@ export async function generateJson(
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: 'user', parts: [{ text: user }] }],
+      // No temperature/top-p: the current model docs mark those sampling
+      // controls as deprecated for this family and they may later be rejected
+      // outright. Determinism does not live here anyway — it lives in the
+      // engine, which is the point of the whole design.
       generationConfig: {
-        temperature: 0,
         responseMimeType: 'application/json',
       },
     }),

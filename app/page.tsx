@@ -1,24 +1,24 @@
-import { AsOfApp } from '../components/AsOfApp';
+import { CanonApp } from '../components/CanonApp';
 import { BuildDecisions } from '../components/BuildDecisions';
 
 export default function Page() {
   return (
     <main>
       <header className="hero">
-        <h1>AsOf</h1>
+        <h1>Canon</h1>
         <p className="tagline">
-          Your AI will tell you things that stopped being true.
+          Stop your agent acting on things that stopped being true.
         </p>
         <p className="sub">
-          It isn&rsquo;t making them up. It read them somewhere, and they were
-          true then. Nothing in the answer tells you they expired — so the
-          reminder goes to the person who left, on the date that moved. AsOf
-          keeps track of <em>when</em> each fact was true, and refuses the ones
-          that aren&rsquo;t any more.
+          It isn&rsquo;t hallucinating. It read that fact somewhere, and back
+          then it was right. Nothing in the answer says it expired — so the
+          reminder goes to the person who left, about the date that moved.
+          Canon keeps the <em>when</em> on every fact and checks an action
+          against it before the action goes out.
         </p>
       </header>
 
-      <AsOfApp />
+      <CanonApp />
       <BuildDecisions />
 
       <p className="faint small">

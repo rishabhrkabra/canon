@@ -17,6 +17,8 @@ export interface State {
   timeline: string;
   facts: Fact[];
   records: ApplyRecord[];
+  /** True while the state is the untouched demo packet. */
+  isDemo: boolean;
   /** Date the facts table is being viewed at; empty string = now. */
   asOf: IsoDate | '';
   selectedQuestionId: string | null;
@@ -27,7 +29,13 @@ export interface State {
 export type Action =
   | { type: 'setTimeline'; timeline: string }
   | { type: 'loadDemo' }
-  | { type: 'apply'; candidates: readonly Candidate[] }
+  /**
+   * `merge` folds new evidence into what is already there — the right choice
+   * for a follow-up paste about the same project. `replace` starts a fresh
+   * memory. Making the caller say which prevents the quiet failure where
+   * someone pastes their own data and it silently mixes with the demo's.
+   */
+  | { type: 'apply'; candidates: readonly Candidate[]; mode: 'merge' | 'replace' }
   | { type: 'setAsOf'; date: IsoDate | '' }
   | { type: 'selectQuestion'; id: string | null }
   | { type: 'extractStart' }
@@ -38,6 +46,7 @@ export const initialState: State = {
   timeline: '',
   facts: [],
   records: [],
+  isDemo: false,
   asOf: '',
   selectedQuestionId: null,
   extract: 'idle',
@@ -52,6 +61,7 @@ export function demoState(): State {
     timeline: DEMO_TIMELINE,
     facts,
     records,
+    isDemo: true,
     selectedQuestionId: 'q-stale-premise',
   };
 }
@@ -65,13 +75,13 @@ export function reducer(state: State, action: Action): State {
       return demoState();
 
     case 'apply': {
-      // New evidence folds into existing state — it does not replace it. That
-      // is what makes a second paste a backfill rather than a fresh start.
-      const { facts, records } = applyCandidates(state.facts, action.candidates);
+      const base = action.mode === 'replace' ? [] : state.facts;
+      const { facts, records } = applyCandidates(base, action.candidates);
       return {
         ...state,
         facts,
-        records: [...state.records, ...records],
+        records: action.mode === 'replace' ? records : [...state.records, ...records],
+        isDemo: action.mode === 'replace' ? false : state.isDemo,
         extract: 'idle',
         message: null,
       };

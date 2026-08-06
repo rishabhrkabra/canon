@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AsOf — a temporal memory linter for AI agents',
+  title: 'Canon — stop agents acting on expired facts',
   description:
-    'Agents act confidently on facts that used to be true. AsOf is the linter you bolt onto agent memory: a deterministic engine owns truth state, the model only nominates candidates.',
+    'Agents act confidently on facts that stopped being true. Canon checks a proposed action against when each fact was true, and blocks it with receipts when a premise has expired.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
