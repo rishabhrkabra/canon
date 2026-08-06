@@ -203,22 +203,46 @@ export function checkPremise(facts: readonly Fact[], premise: Premise): PremiseC
   }
 
   // The headline case: the question assumes something that USED to be true.
-  const assumed = siblingsOf(facts, premise.entity, premise.property).find((f) =>
-    matches(f.value, premise.assumedValue),
-  );
-  const replacement = now.citations[0];
+  const siblings = siblingsOf(facts, premise.entity, premise.property);
+  const assumed = siblings.find((f) => matches(f.value, premise.assumedValue));
+  const current = now.citations[0];
+
+  if (!assumed) {
+    return {
+      premise,
+      verdict: 'stale',
+      currentValue: now.value,
+      supersededBy: current,
+      explanation:
+        `The evidence says "${now.value}" (line ${current.sourceLine}), not ` +
+        `"${premise.assumedValue}".`,
+    };
+  }
+
+  // Name the fact that ACTUALLY replaced it, not whatever happens to be live
+  // now. On a multi-step chain those differ, and pairing the assumed fact's
+  // end date with the current fact's line number describes a handover that
+  // never happened.
+  const successor = siblings.find((f) => f.id === assumed.supersededBy);
+  const chained = successor && successor.id !== current.id;
 
   return {
     premise,
     verdict: 'stale',
     currentValue: now.value,
-    supersededBy: replacement,
-    explanation: assumed
-      ? `"${premise.assumedValue}" was true from ${assumed.validFrom} until ` +
-        `${assumed.validUntil}, when line ${replacement.sourceLine} changed it to ` +
-        `"${now.value}". Acting on the old value would be wrong.`
-      : `The evidence says "${now.value}" (line ${replacement.sourceLine}), not ` +
-        `"${premise.assumedValue}".`,
+    supersededBy: current,
+    explanation:
+      `"${premise.assumedValue}" was true from ${assumed.validFrom} until ` +
+      `${assumed.validUntil}` +
+      (successor
+        ? `, when line ${successor.sourceLine} replaced it with "${successor.value}"`
+        : '') +
+      '. ' +
+      (chained
+        ? `It has changed again since: the current value is "${now.value}" ` +
+          `(line ${current.sourceLine}). `
+        : '') +
+      'Acting on the old value would be wrong.',
   };
 }
 

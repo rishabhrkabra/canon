@@ -131,6 +131,30 @@ describe('checkPremise — the linter', () => {
     expect(r.explanation).toContain('2026-07-28'); // when it stopped being true
   });
 
+  it('names the fact that actually replaced it, not merely the current one', () => {
+    // Three-step chain: the assumed value was replaced by the MIDDLE rung, and
+    // the chain moved on again after that. Describing the last rung as the
+    // thing that closed the first would be a false account of the handover —
+    // the exact error this product exists to catch.
+    const launch = buildFacts([
+      c('Atlas', 'launch', '2026-08-15', '2026-07-01', 1),
+      c('Atlas', 'launch', '2026-09-05', '2026-07-20', 2),
+      c('Atlas', 'launch', '2026-09-19', '2026-08-02', 3),
+    ]).facts;
+    const r = checkPremise(launch, p('Atlas', 'launch', '2026-08-15'));
+
+    expect(r.verdict).toBe('stale');
+    expect(r.currentValue).toBe('2026-09-19');
+    // The handover it describes: closed on 07-20 by line 2, value 2026-09-05.
+    expect(r.explanation).toContain('until 2026-07-20');
+    expect(r.explanation).toContain('line 2 replaced it with "2026-09-05"');
+    // And it must still surface where things stand today.
+    expect(r.explanation).toContain('changed again');
+    expect(r.explanation).toContain('"2026-09-19"');
+    // What it must NOT claim: that line 3 was the one that closed 2026-08-15.
+    expect(r.explanation).not.toContain('line 3 replaced it');
+  });
+
   it('separates "never knew" from "knew, and it expired"', () => {
     const never = checkPremise(owners, p('Atlas', 'budget', '10L'));
     expect(never.verdict).toBe('unknown');
