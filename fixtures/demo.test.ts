@@ -5,15 +5,30 @@
  * one breaks, the deployed demo is lying, so they are pinned exactly.
  */
 
+import { readFileSync } from 'node:fs';
 import { describe, it, expect } from 'vitest';
 import { buildFacts } from '../lib/engine';
 import { checkPremises, hasBlockingPremise, queryAsOf, queryNow } from '../lib/query';
 import { DEMO_CANDIDATES } from './demo-candidates';
 import { DEMO_QUESTIONS } from './demo-questions';
-import { DEMO_TIMELINE_LINES } from './demo-timeline';
+import { DEMO_TIMELINE, DEMO_TIMELINE_LINES, DOWNLOAD_FILENAME } from './demo-timeline';
 
 const { facts, records } = buildFacts(DEMO_CANDIDATES);
 const q = (id: string) => DEMO_QUESTIONS.find((x) => x.id === id)!;
+
+describe('the downloadable file', () => {
+  it('is byte-identical to the timeline the app analyses', () => {
+    // The reviewer uploads this file to their own AI and then compares the
+    // answers to ours. If the two ever drift apart, the comparison is
+    // meaningless and the demo is quietly dishonest — so it is a test, not a
+    // convention.
+    const onDisk = readFileSync(
+      new URL(`../public/${DOWNLOAD_FILENAME}`, import.meta.url),
+      'utf8',
+    );
+    expect(onDisk).toContain(DEMO_TIMELINE);
+  });
+});
 
 describe('demo state', () => {
   it('every candidate cites a line that exists in the timeline', () => {
@@ -21,6 +36,16 @@ describe('demo state', () => {
       const line = DEMO_TIMELINE_LINES[c.sourceLine - 1];
       expect(line, `line ${c.sourceLine} missing`).toBeDefined();
       expect(line.startsWith(c.observedAt)).toBe(true);
+    }
+  });
+
+  it('every candidate quotes text that really appears on its line', () => {
+    // Guards the receipts: a citation that does not appear in the source is
+    // the same failure the product exists to prevent.
+    for (const c of DEMO_CANDIDATES) {
+      const line = DEMO_TIMELINE_LINES[c.sourceLine - 1];
+      expect(line.includes(c.sourceSpan), `"${c.sourceSpan}" not on line ${c.sourceLine}`)
+        .toBe(true);
     }
   });
 
@@ -32,15 +57,27 @@ describe('demo state', () => {
     expect(outcomes).toContain('conflict');
   });
 
-  it('leaves exactly one active fact per settled property', () => {
-    const active = facts.filter((f) => f.status === 'active');
-    const props = active.map((f) => f.property).sort();
-    expect(props).toEqual(['budget', 'launch', 'owner']); // status is conflicted
+  it('settles both projects, leaving only Atlas status unresolved', () => {
+    const active = facts
+      .filter((f) => f.status === 'active')
+      .map((f) => `${f.entity}.${f.property}`)
+      .toSorted();
+    expect(active).toEqual([
+      'Atlas.budget', 'Atlas.launch', 'Atlas.owner',
+      'Borealis.budget', 'Borealis.launch', 'Borealis.owner',
+    ]);
   });
 
   it('corroborates the repeated launch date instead of duplicating it', () => {
     const sep5 = facts.find((f) => f.value === '2026-09-05')!;
     expect(sep5.corroborations).toBe(2);
+  });
+
+  it('keeps Jay current on Borealis while stale on Atlas — the trap', () => {
+    // The whole demo turns on this: "remind Jay" looks reasonable because Jay
+    // really does own a project. Just not this one.
+    expect(queryNow(facts, 'Borealis', 'owner').value).toBe('Jay Menon');
+    expect(queryNow(facts, 'Atlas', 'owner').value).toBe('Neha Rao');
   });
 });
 
@@ -52,9 +89,11 @@ describe('the four demo answers', () => {
 
     const [owner, launch] = checks;
     expect(owner.currentValue).toBe('Neha Rao');
-    expect(owner.supersededBy!.sourceLine).toBe(7);
+    expect(owner.supersededBy!.sourceLine).toBe(11);
     expect(launch.currentValue).toBe('2026-09-19');
-    expect(launch.supersededBy!.sourceLine).toBe(8);
+    expect(launch.supersededBy!.sourceLine).toBe(12);
+    // Launch moved twice, so the explanation must name the middle rung.
+    expect(launch.explanation).toContain('2026-09-05');
   });
 
   it('q-as-of: 10 July returns Jay, not the current owner', () => {
@@ -70,7 +109,7 @@ describe('the four demo answers', () => {
     const r = queryNow(facts, query!.entity, query!.property);
     expect(r.verdict).toBe('conflicted');
     expect(r.value).toBeUndefined();
-    expect(r.citations.map((c) => c.value).sort()).toEqual(['green', 'red']);
+    expect(r.citations.map((c) => c.value).toSorted()).toEqual(['green', 'red']);
   });
 
   it('q-unknown: never observed, and no citation is invented', () => {

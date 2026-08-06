@@ -3,18 +3,19 @@
 import { useReducer } from 'react';
 import { demoState, reducer } from '../lib/state';
 import { isValidCandidate } from '../lib/engine';
-import { ComparePanel } from './ComparePanel';
 import { ConflictBin } from './ConflictBin';
 import { FactsTable } from './FactsTable';
 import { QueryPanel } from './QueryPanel';
 import { TimelineInput } from './TimelineInput';
+import { TryItYourself } from './TryItYourself';
 
 /**
  * The only stateful component. Everything below it is a pure render of the
  * engine's output — no component computes truth, they only display it.
  *
- * State is initialised to the demo packet, so the page is fully working before
- * any network call and on a deployment with no API key at all.
+ * Order is the argument: watch your own AI get it wrong, see the same
+ * questions answered here, and only then look at the machinery. Anyone who
+ * stops after the first two sections has still seen the point.
  */
 export function AsOfApp() {
   const [state, dispatch] = useReducer(reducer, undefined, demoState);
@@ -63,6 +64,32 @@ export function AsOfApp() {
 
   return (
     <>
+      <TryItYourself />
+
+      <QueryPanel
+        facts={state.facts}
+        selectedId={state.selectedQuestionId}
+        onSelect={(id) => dispatch({ type: 'selectQuestion', id })}
+      />
+
+      <section className="panel step">
+        <div className="steptag">How it knew</div>
+        <h2 className="big">It kept every version, not just the latest</h2>
+        <p className="lead">
+          Nothing gets overwritten. Each value is stored with the dates it
+          applied, so &ldquo;what was true in July&rdquo; is a lookup, not a
+          guess. Pick a date to see the file as it stood that day.
+        </p>
+      </section>
+
+      <FactsTable
+        facts={state.facts}
+        asOf={state.asOf}
+        onAsOf={(date) => dispatch({ type: 'setAsOf', date })}
+      />
+
+      <ConflictBin facts={state.facts} />
+
       <TimelineInput
         timeline={state.timeline}
         status={state.extract}
@@ -72,23 +99,6 @@ export function AsOfApp() {
         onExtract={extract}
         onLoadDemo={() => dispatch({ type: 'loadDemo' })}
       />
-
-      <FactsTable
-        facts={state.facts}
-        asOf={state.asOf}
-        onAsOf={(date) => dispatch({ type: 'setAsOf', date })}
-      />
-
-      <div className="grid2">
-        <QueryPanel
-          facts={state.facts}
-          selectedId={state.selectedQuestionId}
-          onSelect={(id) => dispatch({ type: 'selectQuestion', id })}
-        />
-        <ConflictBin facts={state.facts} />
-      </div>
-
-      <ComparePanel facts={state.facts} />
     </>
   );
 }

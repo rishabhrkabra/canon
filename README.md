@@ -16,6 +16,24 @@ that have expired get rejected with the evidence that replaced them.
 
 ---
 
+## See it break first
+
+The deployed page opens with a two-minute experiment rather than a pitch:
+download `public/project-atlas-log.md`, upload it to whichever AI you already
+use, and ask four questions. Then ask AsOf the same four.
+
+The comparison is deliberately **not** something I wrote. An earlier version of
+this page had a "without AsOf" column filled with hand-written examples of what
+a naive system returns — I wrote both sides of that, which is not evidence of
+anything. Running the questions against your own model produces a before-state
+I did not author, and the file you upload is byte-identical to the one the app
+analyses (there is a test that fails if they ever drift apart).
+
+Being straight about what you'll see: **some models get some of these right.**
+That isn't the claim. The claim is that a right answer and a wrong one arrive
+looking identical — fluent, sourced, confident — and nothing in the reply tells
+you which are safe to act on.
+
 ## The problem
 
 Give an assistant a project history and ask it to "remind Jay that Atlas

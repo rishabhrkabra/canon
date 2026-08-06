@@ -24,9 +24,13 @@ export function FactsTable({
 
   const settled = facts.filter((f) => f.status !== 'conflicted');
   const shown = asOf ? settled.filter((f) => holdsOn(f, asOf)) : settled;
+  // Entity first: with more than one project in play, interleaving them by
+  // property makes the table unreadable.
   const ordered = shown.toSorted(
     (a, b) =>
-      a.property.localeCompare(b.property) || (a.validFrom < b.validFrom ? -1 : 1),
+      a.entity.localeCompare(b.entity) ||
+      a.property.localeCompare(b.property) ||
+      (a.validFrom < b.validFrom ? -1 : 1),
   );
 
   return (

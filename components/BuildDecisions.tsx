@@ -3,7 +3,11 @@
 export function BuildDecisions() {
   return (
     <section className="panel">
-      <h2>Build decisions</h2>
+      <details className="deep">
+        <summary className="deepsum">
+          Engineering detail — what&rsquo;s deterministic, what I cut, what
+          it still gets wrong
+        </summary>
 
       <h3>What the model is allowed to do</h3>
       <p className="dim">
@@ -87,6 +91,7 @@ export function BuildDecisions() {
           as a conflict.
         </li>
       </ul>
+      </details>
     </section>
   );
 }
