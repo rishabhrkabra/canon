@@ -69,14 +69,27 @@ export const DEMO_CANDIDATES: Candidate[] = [
   },
   {
     entity: 'Atlas', property: 'launch', value: '2026-09-19',
-    observedAt: '2026-08-02', ...at(12, 'Atlas launch pushed again to 2026-09-19'),
+    observedAt: '2026-08-02', ...at(14, 'Atlas launch pushed again to 2026-09-19'),
   },
   {
     entity: 'Atlas', property: 'budget', value: '52L',
-    observedAt: '2026-08-04', ...at(13, 'Atlas budget revised to 52L'),
+    observedAt: '2026-08-04', ...at(16, 'Atlas budget revised to 52L'),
   },
   {
     entity: 'Borealis', property: 'launch', value: '2026-11-10',
-    observedAt: '2026-08-05', ...at(14, 'Borealis launch target set to 2026-11-10'),
+    observedAt: '2026-08-05', ...at(17, 'Borealis launch target set to 2026-11-10'),
+  },
+  // Same shape as the Atlas status clash — except this one gets settled.
+  {
+    entity: 'Borealis', property: 'status', value: 'green',
+    observedAt: '2026-07-30', ...at(12, 'Weekly review: Borealis status green'),
+  },
+  {
+    entity: 'Borealis', property: 'status', value: 'red',
+    observedAt: '2026-07-30', ...at(13, 'Ops reports Borealis status red, integration blocked'),
+  },
+  {
+    entity: 'Borealis', property: 'status', value: 'amber',
+    observedAt: '2026-08-03', ...at(15, 'Borealis status confirmed amber after triage'),
   },
 ];

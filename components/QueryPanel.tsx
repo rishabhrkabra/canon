@@ -76,6 +76,12 @@ export function QueryPanel({
       : queryNow(facts, q.query.entity, q.query.property)
     : null;
 
+  // The second date, when the question asks for one. Rendered first, because
+  // the interesting half is what the record looked like back then.
+  const earlier = q?.query && q.alsoOn
+    ? queryAsOf(facts, q.query.entity, q.query.property, q.alsoOn)
+    : null;
+
   return (
     <section className="panel step">
       <div className="steptag">Then — ask the same four here</div>
@@ -121,6 +127,13 @@ export function QueryPanel({
             </>
           ) : null}
 
+          {earlier ? (
+            <>
+              <p className="dim small">On {q!.alsoOn}:</p>
+              <Answer result={earlier} />
+              <p className="dim small">Now:</p>
+            </>
+          ) : null}
           {result ? <Answer result={result} /> : null}
 
           <p className="faint small tail">

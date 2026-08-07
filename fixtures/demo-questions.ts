@@ -27,6 +27,12 @@ export interface DemoQuestion {
   premises?: Premise[];
   /** For direct queries. */
   query?: { entity: string; property: string; asOf?: string };
+  /**
+   * A second date to answer alongside. Some questions only make their point
+   * with two answers side by side — "what was it then, and what is it now"
+   * has a different shape for each date, and showing one hides the finding.
+   */
+  alsoOn?: string;
   /** What Canon offers instead once the stale premises are corrected. */
   correctedDraft?: string;
   /** What to look for in the other AI's answer. */
@@ -91,20 +97,32 @@ export const DEMO_QUESTIONS: DemoQuestion[] = [
       '20 July and nothing in the file resolves it.',
   },
   {
-    id: 'q-unknown',
-    label: 'A question the file never answers',
-    question: 'How many people are working on Atlas?',
-    kind: 'unknown',
-    query: { entity: 'Atlas', property: 'headcount' },
+    id: 'q-resolved',
+    label: 'A contradiction that was settled later',
+    question: 'What was the Borealis status on 1 August 2026, and what is it now?',
+    kind: 'now',
+    query: { entity: 'Borealis', property: 'status' },
+    alsoOn: '2026-08-01',
     watchFor:
-      'Headcount is never mentioned. Watch whether your model says so, or ' +
-      'produces a number anyway.',
-    truth: 'Not in the file. "I don’t know" is the only honest answer.',
+      'Two answers are needed, and they are different. On 1 August the log ' +
+      'contradicted itself; by now it does not. Watch whether your model ' +
+      'gives one answer for both dates, or picks a side for the 1st.',
+    truth:
+      'On 1 August it was genuinely contested — the weekly review said green ' +
+      'and Ops said red, both on 30 July, and nothing resolved it until the ' +
+      '3rd. Now it is amber. A settled contradiction is history; the Atlas ' +
+      'one above is still open. Telling those apart is the whole job.',
   },
 ];
 
 /**
- * Three recorded runs, same file, same four questions, same day.
+ * Three recorded runs, same file, same four questions.
+ *
+ * The fourth question was added after the first round, once it was clear the
+ * first three were not separating anything: two were solved by every model.
+ * It was tested before being put here — the whole point of testing first is
+ * being willing to throw a question away, and two of the three candidates
+ * were thrown away.
  *
  * Not a benchmark — three conversations, no retries, no prompt tuning. Kept
  * because a real result beats an assertion, and because the pattern in it is
@@ -185,12 +203,30 @@ export const RECORDED_RUNS = {
       ],
     },
     {
-      id: 'q-unknown',
-      verdict: 'solved' as const,
+      id: 'q-resolved',
+      verdict: 'unsolved' as const,
       results: [
-        { outcome: 'right' as RunOutcome, what: 'Said the log gives no headcount.' },
-        { outcome: 'right' as RunOutcome, what: 'No staffing count recorded.' },
-        { outcome: 'right' as RunOutcome, what: 'Cannot be answered; anything more would be a guess.' },
+        {
+          outcome: 'wrong' as RunOutcome,
+          what:
+            'Not run on the original four; added after the first round. See ' +
+            'the GPT-5 and Claude columns — the pattern held.',
+        },
+        {
+          outcome: 'wrong' as RunOutcome,
+          what:
+            '"Borealis status on 1 August 2026: Red — the latest update by ' +
+            'then." Picked a side again, from two entries dated the same day, ' +
+            'and again never mentioned the one it discarded. Second instance ' +
+            'of the same failure, on a different project.',
+        },
+        {
+          outcome: 'right' as RunOutcome,
+          what:
+            'Both halves. "On August 1 the record was genuinely conflicting … ' +
+            'the honest reading was contested: green per the weekly review, ' +
+            'red per Ops." Then: settled amber on the 3rd.',
+        },
       ],
     },
   ],

@@ -65,6 +65,26 @@ describe('queryNow', () => {
     expect(queryNow(owners, 'atlas', 'OWNER').value).toBe('Neha');
   });
 
+  it('does not treat a future-dated fact as current when given today', () => {
+    // Found by Claude Fable 5 reading a log with an entry six days ahead:
+    // Canon called the future vendor current. It had not taken over yet.
+    const vendor = buildFacts([
+      c('Atlas', 'vendor', 'Northwind', '2026-06-20', 1),
+      c('Atlas', 'vendor', 'Cartwright', '2026-07-24', 2),
+      c('Atlas', 'vendor', 'Northwind', '2026-08-14', 3),
+    ]).facts;
+    expect(queryNow(vendor, 'Atlas', 'vendor').value).toBe('Northwind');
+    expect(queryNow(vendor, 'Atlas', 'vendor', '2026-08-08').value).toBe('Cartwright');
+    expect(queryNow(vendor, 'Atlas', 'vendor', '2026-08-20').value).toBe('Northwind');
+  });
+
+  it('reports unknown when nothing has started yet on the given date', () => {
+    const later = buildFacts([c('Atlas', 'vendor', 'Northwind', '2026-08-14', 1)]).facts;
+    const r = queryNow(later, 'Atlas', 'vendor', '2026-08-08');
+    expect(r.verdict).toBe('unknown');
+    expect(r.explanation).toContain('2026-08-14');
+  });
+
   it('says unknown — with no citation — for something never observed', () => {
     const r = queryNow(owners, 'Atlas', 'budget');
     expect(r.verdict).toBe('unknown');

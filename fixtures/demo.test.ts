@@ -65,6 +65,7 @@ describe('demo state', () => {
     expect(active).toEqual([
       'Atlas.budget', 'Atlas.launch', 'Atlas.owner',
       'Borealis.budget', 'Borealis.launch', 'Borealis.owner',
+      'Borealis.status',   // settled on 2026-08-03; Atlas status never is
     ]);
   });
 
@@ -91,7 +92,7 @@ describe('the four demo answers', () => {
     expect(owner.currentValue).toBe('Neha Rao');
     expect(owner.supersededBy!.sourceLine).toBe(11);
     expect(launch.currentValue).toBe('2026-09-19');
-    expect(launch.supersededBy!.sourceLine).toBe(12);
+    expect(launch.supersededBy!.sourceLine).toBe(14);
     // Launch moved twice, so the explanation must name the middle rung.
     expect(launch.explanation).toContain('2026-09-05');
   });
@@ -112,10 +113,20 @@ describe('the four demo answers', () => {
     expect(r.citations.map((c) => c.value).toSorted()).toEqual(['green', 'red']);
   });
 
-  it('q-unknown: never observed, and no citation is invented', () => {
-    const { query } = q('q-unknown');
-    const r = queryNow(facts, query!.entity, query!.property);
-    expect(r.verdict).toBe('unknown');
-    expect(r.citations).toEqual([]);
+  it('q-resolved: settled now, contested on the day it was contested', () => {
+    // The pair that matters. Atlas status is still open; Borealis was open and
+    // is not any more. A system that cannot tell those apart either refuses
+    // forever or answers a live contradiction with a guess.
+    const { query } = q('q-resolved');
+    const now = queryNow(facts, query!.entity, query!.property);
+    expect(now.verdict).toBe('known');
+    expect(now.value).toBe('amber');
+
+    const onFirst = queryAsOf(facts, query!.entity, query!.property, '2026-08-01');
+    expect(onFirst.verdict).toBe('conflicted');
+    expect(onFirst.citations.map((c) => c.value).toSorted()).toEqual(['green', 'red']);
+
+    // Atlas, by contrast, is still unresolved today.
+    expect(queryNow(facts, 'Atlas', 'status').verdict).toBe('conflicted');
   });
 });

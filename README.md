@@ -45,7 +45,8 @@ pattern is more useful than the tally.
 | Draft the reminder to Jay | **partial** — drafted it with the old date, then noted underneath that Neha took over | **partial** — refused the date, corrected to 19 Sep, then addressed it "Hi Jay" | **right** — "wrong on both the date and the recipient" |
 | Who owned Atlas on 10 July | right | right | right |
 | Current status | **wrong** — "Red", never mentions the green from the same day | **wrong** — same silent pick, same omission | **partial** — discloses the contradiction, then leans red |
-| Headcount | right | right | right |
+| Headcount *(retired — solved)* | right | right | right |
+| Borealis status: 1 Aug vs now | *not in round 1* | **wrong** — "Red", picked a side again, same omission | **right** — "genuinely conflicting on 1 August", then settled amber |
 
 **Two of these are solved.** Asking what was true on a past date, and admitting
 a number was never recorded — every model, every time. Canon claims no credit
@@ -55,6 +56,14 @@ there, and says so on the page.
 answering. But look at the middle column: it fixed the date and still addressed
 the message to the person who left. Half a premise caught is a message that
 goes to the wrong desk with a correct date on it.
+
+**The fourth question was added after this table, and tested before it was
+used.** Three candidates were tried; two were thrown away. A "correction"
+question was dropped because *Canon* fails it too — an explicit correction
+lands on the same date as the entry it corrects, so the engine calls it an
+unresolved conflict rather than a correction. That is in Known limitations
+below, not hidden. A "value returns" question was dropped because the strongest
+model answered it better than the reference answer did.
 
 **The contradiction is not solved, and it is not a knowledge problem.** Two
 models picked a winner from two entries dated the same day and never mentioned
@@ -284,6 +293,17 @@ echo "GEMINI_API_KEY=your-key" > .env.local
 - Corroboration is a count, not a weight. Ten copies of one rumour outrank one
   primary source.
 - A genuinely multi-valued property (two owners at once) reads as a conflict.
+- **An explicit correction is treated as a contradiction.** A line saying "the
+  28 June entry was wrong, it was 45L" produces a claim dated 28 June, which
+  collides with the original. Canon reports the date as contested instead of
+  applying the correction. Refusing beats silently picking the stale number,
+  but a correction is a real signal and the extractor drops it.
+- **Without a supplied date, "now" means "the latest thing on record."** A
+  future-dated entry is therefore treated as current. `queryNow` takes an
+  optional date to fix this; the engine never reads a clock, so the caller has
+  to pass one. Found on 2026-08-07 by Claude Fable 5, which noticed a log entry
+  six days in the future and said so — the audit that improved this came from
+  the models being tested.
 
 ## Layout
 

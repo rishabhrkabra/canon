@@ -38,12 +38,33 @@ export function holdsOn(fact: Fact, date: IsoDate): boolean {
   return true;
 }
 
-/** What is true now, per the evidence we hold. */
+/**
+ * What is true now, per the evidence we hold.
+ *
+ * `now` is optional and the engine never reads a clock — supply it and facts
+ * that do not start until later are excluded; omit it and "now" means "the
+ * latest thing on record". That default has a sharp edge, found on 2026-08-07
+ * when Claude Fable 5 read a log with an entry dated six days ahead and
+ * pointed out that the vendor named in it had not taken over yet. Canon called
+ * it current. It was not.
+ *
+ * The date is a parameter rather than a clock read for two reasons: the engine
+ * stays pure and replayable, and a component that renders from `new Date()`
+ * produces a different tree on the server than the client.
+ */
 export function queryNow(
   facts: readonly Fact[],
   entity: string,
   property: string,
+  now?: IsoDate,
 ): QueryResult {
+  // With a date supplied, "what is true now" is exactly "what was true as of
+  // today" — same question, same interval arithmetic. Reusing it avoids a
+  // second, subtly different notion of current: an interval already closed by
+  // a LATER-dated fact still holds today, which a naive start-date filter
+  // would wrongly discard.
+  if (now !== undefined) return queryAsOf(facts, entity, property, now);
+
   const siblings = siblingsOf(facts, entity, property);
   const base = { entity, property } as const;
 

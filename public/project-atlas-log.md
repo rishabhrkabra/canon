@@ -14,6 +14,9 @@ Each line is dated. Newer lines can change what older lines said.
 2026-07-20: QA reports Atlas status red, two blocking defects.
 2026-07-24: Atlas vendor contract renewed for another quarter.
 2026-07-28: Neha Rao takes over as Atlas owner. Jay Menon moves to Borealis.
+2026-07-30: Weekly review: Borealis status green.
+2026-07-30: Ops reports Borealis status red, integration blocked.
 2026-08-02: Atlas launch pushed again to 2026-09-19.
+2026-08-03: Borealis status confirmed amber after triage.
 2026-08-04: Atlas budget revised to 52L.
 2026-08-05: Borealis launch target set to 2026-11-10.
