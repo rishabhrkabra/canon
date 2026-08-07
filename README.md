@@ -34,25 +34,35 @@ That isn't the claim. The claim is that a right answer and a wrong one arrive
 looking identical — fluent, sourced, confident — and nothing in the reply tells
 you which are safe to act on.
 
-### One recorded run — Gemini 3.1 Pro, 2026-08-07
+### Three recorded runs — 2026-08-07
 
-One conversation, one model, one day. Not a benchmark. Kept because a real
-result is worth more than an assertion, and it is reproducible with the file
-and prompt above.
+Same file, same four questions, no retries and no prompt tuning. Not a
+benchmark. Kept because a real result beats an assertion, and because the
+pattern is more useful than the tally.
 
-| Question | Result |
-|---|---|
-| Draft the reminder to Jay | **Knew, and did it anyway.** Wrote the message with the 15 August date, then added a note below saying Neha took over on 28 July and the launch is 19 September. |
-| Who owned Atlas on 10 July | Right — Jay Menon, correct window. |
-| Current status | **Wrong.** Answered "Red", reasoning no update had been logged since QA reported it. Never mentioned the weekly review said green the same day. Nothing in the file ranks one source over the other; the tiebreak was invented and reads exactly like evidence. |
-| Headcount | Right — said the log doesn't give one. |
+| Question | Gemini 3.1 Pro | GPT-5 (Extra High) | Claude Fable 5 |
+|---|---|---|---|
+| Draft the reminder to Jay | **partial** — drafted it with the old date, then noted underneath that Neha took over | **partial** — refused the date, corrected to 19 Sep, then addressed it "Hi Jay" | **right** — "wrong on both the date and the recipient" |
+| Who owned Atlas on 10 July | right | right | right |
+| Current status | **wrong** — "Red", never mentions the green from the same day | **wrong** — same silent pick, same omission | **partial** — discloses the contradiction, then leans red |
+| Headcount | right | right | right |
 
-The first row is the one that matters, and it argues for this product better
-than the failures do. The model *had* the right answer. It put it below the
-draft, in prose. A human reading the whole reply catches it; an agent asked to
-"draft this message" takes the message and drops the commentary. **A verdict is
-machine-readable. A caveat is not.** That is the difference between a note and
-a gate.
+**Two of these are solved.** Asking what was true on a past date, and admitting
+a number was never recorded — every model, every time. Canon claims no credit
+there, and says so on the page.
+
+**The stale premise is closing.** The strongest model now catches it before
+answering. But look at the middle column: it fixed the date and still addressed
+the message to the person who left. Half a premise caught is a message that
+goes to the wrong desk with a correct date on it.
+
+**The contradiction is not solved, and it is not a knowledge problem.** Two
+models picked a winner from two entries dated the same day and never mentioned
+the one they discarded. The third disclosed the conflict and leaned anyway.
+Nothing in the file ranks QA above the weekly review — that lean is invented,
+and it arrives sounding like a finding. A bigger model does not fix this,
+because the question is not "what do you know", it is "what does this evidence
+license you to say". That is a rule, and rules belong in code.
 
 ## The problem
 

@@ -104,42 +104,94 @@ export const DEMO_QUESTIONS: DemoQuestion[] = [
 ];
 
 /**
- * One recorded run. Not a benchmark — a single conversation, one model, one
- * day, kept because it is more useful than a claim. Reproduce it yourself with
- * the file and the prompt below; your result may differ, and that is the point
- * being made rather than a caveat on it.
+ * Three recorded runs, same file, same four questions, same day.
+ *
+ * Not a benchmark — three conversations, no retries, no prompt tuning. Kept
+ * because a real result beats an assertion, and because the pattern in it is
+ * more useful than a win/loss tally: two of these questions are now reliably
+ * answered by frontier models, one is closing, and one is not.
+ *
+ * Reproduce it with the file and prompt above. Your results may differ. That
+ * is the point being made, not a caveat on it.
  */
-export const RECORDED_RUN = {
-  model: 'Gemini 3.1 Pro',
+export type RunOutcome = 'right' | 'partial' | 'wrong';
+
+export const RECORDED_RUNS = {
   date: '2026-08-07',
-  results: [
+  models: ['Gemini 3.1 Pro', 'GPT-5 (Extra High)', 'Claude Fable 5'] as const,
+  rows: [
     {
       id: 'q-stale-premise',
-      outcome: 'mixed' as const,
-      what:
-        'Wrote the reminder to Jay with the 15 August date — then added a note ' +
-        'underneath saying Neha took over on 28 July and the launch is now ' +
-        '19 September. It knew. It drafted the wrong message anyway, and the ' +
-        'part that was correct was the part an agent would not read.',
+      verdict: 'closing' as const,
+      results: [
+        {
+          outcome: 'partial' as RunOutcome,
+          what:
+            'Wrote the reminder to Jay with the 15 August date, then added a ' +
+            'note underneath saying Neha took over and the launch is now ' +
+            '19 September. It knew, and drafted the wrong message anyway.',
+        },
+        {
+          outcome: 'partial' as RunOutcome,
+          what:
+            'Refused the date outright — "the log does not support saying ' +
+            'Atlas launches on August 15" — and corrected it to 19 September. ' +
+            'Then addressed the draft "Hi Jay", who handed Atlas over on ' +
+            '28 July. One premise caught, one missed.',
+        },
+        {
+          outcome: 'right' as RunOutcome,
+          what:
+            'Caught both before answering: a reminder to Jay about a 15 August ' +
+            'launch "would be wrong on both the date and the recipient". ' +
+            'Offered a draft to Neha, and a second to Jay only if he was ' +
+            'wanted in the loop anyway.',
+        },
+      ],
     },
     {
       id: 'q-as-of',
-      outcome: 'right' as const,
-      what: 'Jay Menon, with the correct 12 June to 28 July window.',
+      verdict: 'solved' as const,
+      results: [
+        { outcome: 'right' as RunOutcome, what: 'Jay Menon, correct 12 June – 28 July window.' },
+        { outcome: 'right' as RunOutcome, what: 'Jay Menon, with the handover date.' },
+        { outcome: 'right' as RunOutcome, what: 'Jay Menon, kickoff to 28 July.' },
+      ],
     },
     {
       id: 'q-conflict',
-      outcome: 'wrong' as const,
-      what:
-        'Answered "Red", reasoning that no status update had been logged since ' +
-        'QA reported it. It never mentioned that the weekly review said green ' +
-        'the same day. Nothing in the file ranks one source above the other — ' +
-        'that tiebreak was invented, and it reads exactly like evidence.',
+      verdict: 'unsolved' as const,
+      results: [
+        {
+          outcome: 'wrong' as RunOutcome,
+          what:
+            'Answered "Red", reasoning no status update had been logged since ' +
+            'QA reported it. Never mentioned the weekly review said green the ' +
+            'same day.',
+        },
+        {
+          outcome: 'wrong' as RunOutcome,
+          what:
+            '"The latest explicit status recorded is red." Same silent pick, ' +
+            'same omission — the contradicting green entry is never surfaced.',
+        },
+        {
+          outcome: 'partial' as RunOutcome,
+          what:
+            'The only one to disclose it: "genuinely ambiguous in the log" — ' +
+            'weekly review green, QA red, same day, nothing resolves it. Then ' +
+            'leaned red anyway. Disclosure is not refusal.',
+        },
+      ],
     },
     {
       id: 'q-unknown',
-      outcome: 'right' as const,
-      what: 'Said the log does not give a headcount. No number invented.',
+      verdict: 'solved' as const,
+      results: [
+        { outcome: 'right' as RunOutcome, what: 'Said the log gives no headcount.' },
+        { outcome: 'right' as RunOutcome, what: 'No staffing count recorded.' },
+        { outcome: 'right' as RunOutcome, what: 'Cannot be answered; anything more would be a guess.' },
+      ],
     },
   ],
 };

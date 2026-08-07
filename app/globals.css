@@ -244,3 +244,13 @@ ol.runlist li { margin-bottom: 12px; }
 .chip.run-right  { color: var(--active);   border-color: color-mix(in srgb, var(--active) 40%, transparent); }
 .chip.run-wrong  { color: var(--conflict); border-color: color-mix(in srgb, var(--conflict) 40%, transparent); }
 .chip.run-mixed  { color: var(--stale);    border-color: color-mix(in srgb, var(--stale) 40%, transparent); }
+
+table.runtable { min-width: 780px; font-size: 12.5px; }
+table.runtable td { vertical-align: top; width: 24%; }
+table.runtable td:first-child { width: 28%; }
+table.runtable .tail { margin-top: 5px; }
+.qshort { display: block; font-weight: 600; margin-bottom: 5px; }
+.chip.verdict-solved   { color: var(--active);   border-color: color-mix(in srgb, var(--active) 40%, transparent); }
+.chip.verdict-closing  { color: var(--stale);    border-color: color-mix(in srgb, var(--stale) 40%, transparent); }
+.chip.verdict-unsolved { color: var(--conflict); border-color: color-mix(in srgb, var(--conflict) 40%, transparent); }
+.chip.run-partial { color: var(--stale); border-color: color-mix(in srgb, var(--stale) 40%, transparent); }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   ALL_QUESTIONS_PROMPT,
   DEMO_QUESTIONS,
-  RECORDED_RUN,
+  RECORDED_RUNS,
 } from '../fixtures/demo-questions';
 import { DOWNLOAD_FILENAME } from '../fixtures/demo-timeline';
 
@@ -77,38 +77,66 @@ export function TryItYourself() {
 
       <details>
         <summary>
-          What happened when I ran it — {RECORDED_RUN.model}, {RECORDED_RUN.date}
+          What happened when I ran it — three models, {RECORDED_RUNS.date}
         </summary>
         <p className="dim small">
-          One conversation, one model, one day. Not a benchmark, and not a
-          claim about models in general — kept because a real result is worth
-          more than an assertion. Two of four right, one wrong, one that knew
-          the answer and did the wrong thing anyway.
+          Same file, same four questions, no retries and no prompt tuning. Not a
+          benchmark — three conversations, kept because a real result beats an
+          assertion. The pattern matters more than the tally.
         </p>
-        <ol className="runlist">
-          {RECORDED_RUN.results.map((r) => {
-            const q = DEMO_QUESTIONS.find((x) => x.id === r.id);
-            return (
-              <li key={r.id}>
-                <span className={`chip run-${r.outcome}`}>
-                  {r.outcome === 'right'
-                    ? 'got it'
-                    : r.outcome === 'wrong'
-                      ? 'got it wrong'
-                      : 'knew, still did it'}
-                </span>{' '}
-                <span className="mono small">{q?.question}</span>
-                <p className="dim small tail">{r.what}</p>
-              </li>
-            );
-          })}
-        </ol>
+
+        <div className="tablewrap">
+          <table className="runtable">
+            <thead>
+              <tr>
+                <th>Question</th>
+                {RECORDED_RUNS.models.map((m) => (
+                  <th key={m}>{m}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {RECORDED_RUNS.rows.map((row) => {
+                const q = DEMO_QUESTIONS.find((x) => x.id === row.id);
+                return (
+                  <tr key={row.id}>
+                    <td>
+                      <span className="qshort">{q?.label}</span>
+                      <span className={`chip verdict-${row.verdict}`}>{row.verdict}</span>
+                    </td>
+                    {row.results.map((r, i) => (
+                      <td key={i}>
+                        <span className={`chip run-${r.outcome}`}>{r.outcome}</span>
+                        <p className="dim small tail">{r.what}</p>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <p className="dim">
+          <strong>Two of these are solved.</strong> Asking what was true on a
+          past date, and admitting a number was never recorded — every model got
+          both right, every time. Canon claims no credit there.
+        </p>
+        <p className="dim">
+          <strong>The stale premise is closing.</strong> A year ago this failed
+          outright; now the strongest model catches both halves before answering.
+          Note what the middle column did though: it fixed the date and still
+          addressed the message to the person who left. Half a premise caught is
+          a sent message that goes to the wrong desk.
+        </p>
         <p className="dim flush">
-          The first one is the one worth sitting with. The model had the right
-          answer and put it <em>below</em> the draft, as prose. A person reading
-          the whole reply catches it. An agent handed &ldquo;draft this
-          message&rdquo; takes the message. A verdict is machine-readable; a
-          caveat is not.
+          <strong>The contradiction is not solved.</strong> Two models picked a
+          winner from two entries dated the same day and never mentioned the one
+          they discarded. The third disclosed the conflict and then leaned
+          anyway. Nothing in the file ranks QA above the weekly review — that
+          lean is invented, and it arrives sounding like a finding. This is the
+          case that does not get better with a bigger model, because it is not a
+          knowledge problem. It is a question about what the evidence licenses.
         </p>
       </details>
     </section>
