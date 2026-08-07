@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     }
     console.error('[premise] failed:', err instanceof Error ? err.message : err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Premise extraction failed.' },
+      { code: 'MODEL_ERROR', error: 'Premise extraction failed. Try again.' },
       { status: 502 },
     );
   }

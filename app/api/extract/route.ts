@@ -61,8 +61,9 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     if (err instanceof NoKeyError) {
-      // Expected on a deployment with no key. Not an error — everything except
-      // this one route is designed to work in exactly this state.
+      // Expected on a deployment with no key. Not an outage, and it must not
+      // be described as one — everything except this route is designed to work
+      // in exactly this state.
       return NextResponse.json(
         { code: 'NO_KEY', error: err.message },
         { status: 503 },
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
     // secret; neither belongs in a log line.
     console.error('[extract] failed:', err instanceof Error ? err.message : err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Extraction failed.' },
+      { code: 'MODEL_ERROR', error: 'The model could not read this text. Try again.' },
       { status: 502 },
     );
   }

@@ -1,22 +1,32 @@
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { generateText, Output } from 'ai';
+
 /**
- * Minimal Gemini client. Server-only.
+ * Model access, server-only.
  *
- * Three deliberate constraints:
- *  - The key is read from process.env at call time and sent in the
- *    `x-goog-api-key` header, never in the URL (query strings land in logs and
- *    proxies) and never under a NEXT_PUBLIC_ name.
+ * Calls Google directly with a free-tier AI Studio key rather than going
+ * through a gateway. The gateway route was tried and rejected every request —
+ * it requires a card on file, and this project has a hard no-spend rule. A
+ * direct free-tier key costs nothing and needs no billing account.
+ *
+ * Three constraints that survived the rewrite:
+ *  - The key is read from process.env at call time, server-side only, never
+ *    under a NEXT_PUBLIC_ name. The SDK puts it in a header, not a query string.
  *  - No retries. Free-tier limits are unpublished, and a retry storm is the
  *    fastest way to lose the key mid-demo. One attempt, honest error.
- *  - A missing key is a distinct, expected outcome — not an exception. The
- *    app is required to work without one.
+ *  - A missing key is a distinct, EXPECTED outcome — not a failure. Everything
+ *    on the page except this one feature is deterministic, so a deployment with
+ *    no key must say exactly that instead of implying an outage.
+ *
+ * `Output.json()` only proves the response parses as JSON. Structure, receipts
+ * and meaning are still decided by the validators and the engine.
  */
 
 const MODEL = 'gemini-3.5-flash-lite';
-const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 export class NoKeyError extends Error {
   constructor() {
-    super('GEMINI_API_KEY is not configured on this deployment.');
+    super('No GEMINI_API_KEY is configured on this deployment.');
     this.name = 'NoKeyError';
   }
 }
@@ -34,39 +44,15 @@ export async function generateJson(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new NoKeyError();
 
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-    signal,
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: 'user', parts: [{ text: user }] }],
-      // No temperature/top-p: the current model docs mark those sampling
-      // controls as deprecated for this family and they may later be rejected
-      // outright. Determinism does not live here anyway — it lives in the
-      // engine, which is the point of the whole design.
-      generationConfig: {
-        responseMimeType: 'application/json',
-      },
-    }),
+  const google = createGoogleGenerativeAI({ apiKey });
+
+  const { output } = await generateText({
+    model: google(MODEL),
+    system,
+    prompt: user,
+    output: Output.json(),
+    abortSignal: signal,
   });
 
-  if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(
-      `Model request failed (${res.status}).${detail ? ` ${detail.slice(0, 300)}` : ''}`,
-    );
-  }
-
-  const body = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] } }[];
-  };
-  const text = body.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-  if (!text.trim()) throw new Error('Model returned an empty response.');
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error('Model returned output that was not valid JSON.');
-  }
+  return output;
 }

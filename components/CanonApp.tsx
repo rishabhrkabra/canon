@@ -33,8 +33,8 @@ export function CanonApp() {
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        // One shot, no retry loop — free-tier limits are unpublished and a
-        // retry storm is the fastest way to lose the key for the demo.
+        // One shot, no retry loop. The service owns provider failover; the
+        // browser should never amplify an outage into a request storm.
         dispatch({
           type: 'extractFailed',
           status: body?.code === 'NO_KEY' ? 'no-key' : 'error',

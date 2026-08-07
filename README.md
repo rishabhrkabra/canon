@@ -223,8 +223,15 @@ into `fixtures/`.
 This is a design requirement, not a convenience. The model is a replaceable
 front-end to the engine, so nothing a reviewer needs to see should depend on it
 being reachable. Exactly one feature needs `GEMINI_API_KEY` — reading *new*
-prose you paste — and without it the UI says so plainly instead of failing
-quietly.
+prose you paste — and without it the UI says so plainly instead of implying an
+outage.
+
+Model calls go to `gemini-3.5-flash-lite` through AI SDK with a free-tier
+Google AI Studio key. An earlier version routed through Vercel AI Gateway; that
+was reverted because the gateway rejects every request without a card on file,
+and this project has a hard no-spend rule. `Output.json()` only proves the
+response parses as JSON — structure, receipts and meaning are still decided by
+the validators and the engine.
 
 Both model-backed routes are rate limited (8/min per caller). That limiter is
 in-process, so it is a speed bump rather than a quota system — a real
@@ -234,20 +241,17 @@ deployment moves it to Redis. Written down rather than left implied.
 
 ```bash
 npm install
-npm test        # 58 tests: engine, queries, the gate, demo end-to-end
+npm test        # 61 tests: engine, queries, the gate, demo end-to-end
 npm run dev
 ```
 
-Optional, for live extraction of your own text:
+Optional, for reading your own text — a free key from
+[Google AI Studio](https://aistudio.google.com/apikey), no billing account
+required:
 
 ```bash
 echo "GEMINI_API_KEY=your-key" > .env.local
 ```
-
-The key is read server-side only and sent in an `x-goog-api-key` header — never
-in a query string, never under a `NEXT_PUBLIC_` name. There are no retries:
-free-tier limits are unpublished, and a retry storm is the fastest way to lose
-the key mid-demo.
 
 ## What I deliberately cut
 
