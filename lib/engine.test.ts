@@ -276,6 +276,35 @@ describe('receipts must exist in the source', () => {
   });
 });
 
+describe('the injection boundary', () => {
+  it('a real quote cannot carry a value it never states', () => {
+    // Audit: an injected instruction made the model emit status=compromised
+    // while citing a genuine line that says "status green". Quote real, date
+    // real, fact invented — and it sailed through. The span must state the
+    // value.
+    const line = '2026-07-20: Weekly review: Atlas status green.';
+    const { verified, rejected } = verifyReceipts(
+      [{ entity: 'Atlas', property: 'status', value: 'compromised',
+         observedAt: '2026-07-20', sourceLine: 1,
+         sourceSpan: 'Weekly review: Atlas status green' }],
+      line,
+    );
+    expect(verified).toHaveLength(0);
+    expect(rejected[0].reason).toContain('never states that value');
+  });
+
+  it('still accepts a date written as prose', () => {
+    const line = '2026-06-12: Kickoff. Target launch August 15.';
+    const { verified } = verifyReceipts(
+      [{ entity: 'Atlas', property: 'launch', value: '2026-08-15',
+         observedAt: '2026-06-12', sourceLine: 1,
+         sourceSpan: 'Target launch August 15' }],
+      line,
+    );
+    expect(verified).toHaveLength(1);
+  });
+});
+
 describe('duplicate', () => {
   it('corroborates instead of inserting a second copy', () => {
     const { facts, records } = buildFacts([

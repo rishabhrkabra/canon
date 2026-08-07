@@ -60,20 +60,22 @@ function Answer({ result }: { result: QueryResult }) {
 
 export function QueryPanel({
   facts,
+  today,
   selectedId,
   onSelect,
 }: {
   facts: Fact[];
+  today: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
   const q: DemoQuestion | undefined = DEMO_QUESTIONS.find((x) => x.id === selectedId);
 
-  const checks = q?.premises ? checkPremises(facts, q.premises) : null;
+  const checks = q?.premises ? checkPremises(facts, q.premises, today) : null;
   const result = q?.query
     ? q.query.asOf
       ? queryAsOf(facts, q.query.entity, q.query.property, q.query.asOf)
-      : queryNow(facts, q.query.entity, q.query.property)
+      : queryNow(facts, q.query.entity, q.query.property, today)
     : null;
 
   // The second date, when the question asks for one. Rendered first, because

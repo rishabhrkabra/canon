@@ -12,10 +12,12 @@ import type { Fact, IsoDate } from '../lib/types';
  */
 export function FactsTable({
   facts,
+  today,
   asOf,
   onAsOf,
 }: {
   facts: Fact[];
+  today: IsoDate;
   asOf: IsoDate | '';
   onAsOf: (d: IsoDate | '') => void;
 }) {
@@ -27,11 +29,13 @@ export function FactsTable({
   const settled = facts.filter((f) => f.status !== 'conflicted');
   // Default is what holds NOW. Showing superseded rows under a "now" heading
   // was quietly wrong — history is a separate, deliberate view.
+  // "True right now" means holds ON today's date — not "has no end yet". A
+  // future-dated fact has no end either, and it has not started.
   const shown = asOf
     ? settled.filter((f) => holdsOn(f, asOf))
     : showHistory
       ? settled
-      : settled.filter((f) => f.validUntil === undefined);
+      : settled.filter((f) => holdsOn(f, today));
   // Entity first: with more than one project in play, interleaving them by
   // property makes the table unreadable.
   const ordered = shown.toSorted(

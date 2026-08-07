@@ -56,9 +56,9 @@ function CheckRow({ check }: { check: PremiseCheck }) {
  * the one thing a reviewer must be able to try is the one thing that cannot be
  * allowed to depend on a key being present.
  */
-export function ActionGate({ facts }: { facts: Fact[] }) {
+export function ActionGate({ facts, today }: { facts: Fact[]; today: string }) {
   const [action, setAction] = useState(PRESETS[0]);
-  const result = useMemo(() => gateAction(facts, action), [facts, action]);
+  const result = useMemo(() => gateAction(facts, action, today), [facts, action, today]);
   const blocked = result.verdict !== 'ALLOW';
 
   return (
@@ -115,16 +115,30 @@ export function ActionGate({ facts }: { facts: Fact[] }) {
       ))}
       </div>
 
-      {result.corrected && result.corrected !== result.action ? (
-        <div className="side">
-          <div>
-            <div className="label">what you asked for</div>
-            <p className="flush">{result.action}</p>
-          </div>
-          <div>
-            <div className="label">what the record supports</div>
-            <p className="flush">{result.corrected}</p>
-          </div>
+      {result.checks.some((c) => c.verdict === 'stale') ? (
+        <div className="corrections">
+          <div className="label">what the record says instead</div>
+          {result.checks
+            .filter((c) => c.verdict === 'stale' && c.currentValue)
+            .map((c) => (
+              <div key={`${c.premise.entity}-${c.premise.property}`} className="corr">
+                <span className="corr-prop">{c.premise.property}</span>
+                <span className="corr-old">{c.premise.assumedValue}</span>
+                <span className="corr-arrow">→</span>
+                <span className="corr-new">{c.currentValue}</span>
+                {c.supersededBy ? (
+                  <span className="faint mono corr-src">
+                    line {c.supersededBy.sourceLine}, {c.supersededBy.observedAt}
+                  </span>
+                ) : null}
+              </div>
+            ))}
+          <p className="faint small tail flush">
+            Values with receipts, never a rewritten sentence — an earlier
+            version substituted text and turned &ldquo;Ask Jay about
+            Jayant&rdquo; into &ldquo;Ask Neha Rao about Neha Raoant&rdquo;.
+            Redraft, then run the new draft through the gate again.
+          </p>
         </div>
       ) : null}
 

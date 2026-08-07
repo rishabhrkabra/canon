@@ -38,7 +38,13 @@ export async function POST(req: Request) {
   }
 
   try {
-    const raw = await generateJson(EXTRACT_SYSTEM, extractUserPrompt(timeline));
+    // 25s < maxDuration: the model call dies as OUR error with OUR message,
+    // never as a platform kill mid-function.
+    const raw = await generateJson(
+      EXTRACT_SYSTEM,
+      extractUserPrompt(timeline),
+      AbortSignal.any([req.signal, AbortSignal.timeout(25_000)]),
+    );
     const list = (raw as { candidates?: unknown })?.candidates;
 
     // Two gates, both mandatory. The first rejects anything malformed — the

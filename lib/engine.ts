@@ -146,9 +146,48 @@ export function verifyReceipts(
       });
       continue;
     }
+    // The quote existing is not the quote MEANING the value. An injected line
+    // told the model to emit status=compromised while citing a real span that
+    // says "status green" — quote real, date real, fact invented. So the value
+    // itself must appear in the cited span (dates in any written form). This
+    // keeps the model a nominator: it can point at evidence, it cannot smuggle
+    // a claim the evidence never states.
+    if (!spanStatesValue(c.sourceSpan, c.value)) {
+      rejected.push({
+        candidate: c,
+        reason: `claims "${c.value}", but the cited text never states that value`,
+      });
+      continue;
+    }
     verified.push(c);
   }
   return { verified, rejected };
+}
+
+const MONTH_NAMES = [
+  'january','february','march','april','may','june',
+  'july','august','september','october','november','december',
+];
+
+/** Does the cited span actually state the value it is being used to prove? */
+export function spanStatesValue(span: string, value: string): boolean {
+  const norm = (x: string) => x.replace(/\s+/g, ' ').trim().toLowerCase();
+  const s = norm(span);
+  const v = norm(value);
+  if (s.includes(v)) return true;
+
+  // Dates get written as prose: 2026-08-15 appears as "August 15" or "15 Aug".
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+  if (m) {
+    const month = MONTH_NAMES[Number(m[2]) - 1];
+    const day = String(Number(m[3]));
+    const forms = [
+      `${month} ${day}`, `${day} ${month}`,
+      `${month.slice(0, 3)} ${day}`, `${day} ${month.slice(0, 3)}`,
+    ];
+    if (forms.some((f) => s.includes(f))) return true;
+  }
+  return false;
 }
 
 function newFact(c: Candidate, over: Partial<Fact> = {}): Fact {

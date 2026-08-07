@@ -42,3 +42,15 @@ export const DEMO_TIMELINE_LINES = DEMO_TIMELINE.split('\n');
 
 /** Served at /project-atlas-log.md for the reviewer to download and upload. */
 export const DOWNLOAD_FILENAME = 'project-atlas-log.md';
+
+/**
+ * The demo's fixed "today" — the date the recorded model runs were made.
+ *
+ * Fixed on purpose, twice over. The engine never reads a clock, so the caller
+ * must say what day it is; and a demo pinned to synthetic 2026 dates would rot
+ * silently if it used the real clock — a year from now every fact would read
+ * as ancient history. When a reviewer starts their OWN record, the app reads
+ * the real date once, in the event handler, where there is no server render to
+ * disagree with.
+ */
+export const DEMO_TODAY = '2026-08-08';

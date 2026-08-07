@@ -9,7 +9,7 @@
 import { applyCandidates } from './engine';
 import type { ApplyRecord, Candidate, Fact, IsoDate } from './types';
 import { DEMO_CANDIDATES } from '../fixtures/demo-candidates';
-import { DEMO_TIMELINE } from '../fixtures/demo-timeline';
+import { DEMO_TIMELINE, DEMO_TODAY } from '../fixtures/demo-timeline';
 
 export type ExtractStatus = 'idle' | 'working' | 'no-key' | 'error';
 
@@ -19,6 +19,8 @@ export interface State {
   records: ApplyRecord[];
   /** True while the state is the untouched demo packet. */
   isDemo: boolean;
+  /** The effective date every query and gate check runs against. */
+  today: IsoDate;
   /** Date the facts table is being viewed at; empty string = now. */
   asOf: IsoDate | '';
   selectedQuestionId: string | null;
@@ -35,7 +37,13 @@ export type Action =
    * memory. Making the caller say which prevents the quiet failure where
    * someone pastes their own data and it silently mixes with the demo's.
    */
-  | { type: 'apply'; candidates: readonly Candidate[]; mode: 'merge' | 'replace' }
+  | {
+      type: 'apply';
+      candidates: readonly Candidate[];
+      mode: 'merge' | 'replace';
+      /** Real today, read in the event handler. Only replace supplies it. */
+      today?: IsoDate;
+    }
   | { type: 'setAsOf'; date: IsoDate | '' }
   | { type: 'selectQuestion'; id: string | null }
   | { type: 'extractStart' }
@@ -47,6 +55,7 @@ export const initialState: State = {
   facts: [],
   records: [],
   isDemo: false,
+  today: DEMO_TODAY,
   asOf: '',
   selectedQuestionId: null,
   extract: 'idle',
@@ -62,6 +71,7 @@ export function demoState(): State {
     facts,
     records,
     isDemo: true,
+    today: DEMO_TODAY,
     selectedQuestionId: 'q-stale-premise',
   };
 }
@@ -82,6 +92,7 @@ export function reducer(state: State, action: Action): State {
         facts,
         records: action.mode === 'replace' ? records : [...state.records, ...records],
         isDemo: action.mode === 'replace' ? false : state.isDemo,
+        today: action.mode === 'replace' && action.today ? action.today : state.today,
         extract: 'idle',
         message: null,
       };

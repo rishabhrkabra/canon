@@ -20,6 +20,13 @@ function isValidPremise(v: unknown): v is Premise {
 /**
  * A request -> the claims it takes for granted. Checking them is the engine's
  * job, not the model's: this route returns premises with no verdicts attached.
+ *
+ * Status: no UI consumer yet. The in-browser gate uses the deterministic
+ * scanner instead, precisely because this route's output cannot be receipt-
+ * verified — a premise quotes the QUESTION, not the record, so there is no
+ * line to check it against. It stays because it is the integration point a
+ * real agent would call, but nothing on the page depends on it, and an audit
+ * run found it can miss premises the deterministic scanner catches.
  */
 export async function POST(req: Request) {
   const gate = rateLimit(req);
@@ -41,12 +48,16 @@ export async function POST(req: Request) {
   if (typeof question !== 'string' || question.trim().length === 0) {
     return NextResponse.json({ error: 'Provide a question.' }, { status: 400 });
   }
+  if (question.length > 2_000) {
+    return NextResponse.json({ error: 'Question too long (2k limit).' }, { status: 413 });
+  }
   const knownList = Array.isArray(known) ? known.filter((k) => typeof k === 'string') : [];
 
   try {
     const raw = await generateJson(
       PREMISE_SYSTEM,
       premiseUserPrompt(question, knownList),
+      AbortSignal.any([req.signal, AbortSignal.timeout(25_000)]),
     );
     const list = (raw as { premises?: unknown })?.premises;
     const premises = Array.isArray(list) ? list.filter(isValidPremise) : [];

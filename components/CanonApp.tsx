@@ -58,7 +58,14 @@ export function CanonApp() {
         });
         return;
       }
-      dispatch({ type: 'apply', candidates, mode });
+      dispatch({
+        type: 'apply',
+        candidates,
+        mode,
+        // The one clock read in the app, and it happens in an event handler —
+        // never during render, so the server has nothing to disagree with.
+        today: mode === 'replace' ? new Date().toISOString().slice(0, 10) : undefined,
+      });
     } catch {
       dispatch({
         type: 'extractFailed',
@@ -70,14 +77,15 @@ export function CanonApp() {
 
   return (
     <>
-      <ActionGate facts={state.facts} />
+      <ActionGate facts={state.facts} today={state.today} />
 
-      <AgentLoop facts={state.facts} />
+      <AgentLoop facts={state.facts} today={state.today} />
 
       <TryItYourself />
 
       <QueryPanel
         facts={state.facts}
+        today={state.today}
         selectedId={state.selectedQuestionId}
         onSelect={(id) => dispatch({ type: 'selectQuestion', id })}
       />
@@ -94,6 +102,7 @@ export function CanonApp() {
 
       <FactsTable
         facts={state.facts}
+        today={state.today}
         asOf={state.asOf}
         onAsOf={(date) => dispatch({ type: 'setAsOf', date })}
       />

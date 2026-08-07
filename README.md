@@ -209,6 +209,33 @@ an assumed fact's end date with the current fact's line number describes a
 handover that never happened. Caught during browser verification; pinned by a
 test.
 
+## What audits found, in rounds
+
+This project has now survived three adversarial audit rounds, and the honest
+framing is that each round found something real. The pattern across all of
+them: every failure sat at a boundary — between the model and the engine,
+between "no end date" and "current", between a value and the prose around it.
+The deterministic core has never been caught wrong twice in the same place,
+because each catch became a regression test.
+
+**Round three was the sharpest, because it attacked the central claim.** An
+injected line in pasted text told the model to emit `status = compromised`
+citing a real span that says "status green". The receipt verifier checked that
+the quote existed and the date matched — and passed it. Quote real, date real,
+fact invented. The claim "untrusted model output cannot corrupt truth" was
+demonstrably false.
+
+The fix closes the meaning gap, not just the existence gap: **the cited span
+must state the value itself** (dates in any written form). The model can point
+at evidence; it cannot smuggle a claim the evidence never states. Same round:
+future-dated facts were treated as current (the effective date is now a
+required argument through the whole gate path — TypeScript makes omission a
+compile error); "In Progress" grew a first name and blocked "send the update
+*in* the morning" (aliases now apply only to person-valued properties, with
+stop words); and the prose rewrite turned "Ask Jay about Jayant" into "Ask
+Neha Rao about Neha Raoant" (the rewrite is deleted — the gate returns values
+with receipts, and the agent redrafts).
+
 ## Three bugs an audit found, and what they were
 
 An adversarial audit broke the engine three ways. Each was reproduced as a

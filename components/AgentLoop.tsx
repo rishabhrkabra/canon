@@ -19,8 +19,8 @@ const ACTOR_LABEL = {
  * engine as the rest of the page. So the only staged part is the sequence —
  * and the sequence is the point.
  */
-export function AgentLoop({ facts }: { facts: Fact[] }) {
-  const result = useMemo(() => gateAction(facts, AGENT_DRAFT), [facts]);
+export function AgentLoop({ facts, today }: { facts: Fact[]; today: string }) {
+  const result = useMemo(() => gateAction(facts, AGENT_DRAFT, today), [facts, today]);
   const stale = result.checks.filter((c) => c.verdict === 'stale');
 
   return (

@@ -194,8 +194,12 @@ export function queryAsOf(
  * both without noticing either. Each premise gets checked against truth state,
  * and a stale one is rejected WITH the fact that replaced it.
  */
-export function checkPremise(facts: readonly Fact[], premise: Premise): PremiseCheck {
-  const now = queryNow(facts, premise.entity, premise.property);
+export function checkPremise(
+  facts: readonly Fact[],
+  premise: Premise,
+  today?: IsoDate,
+): PremiseCheck {
+  const now = queryNow(facts, premise.entity, premise.property, today);
   const matches = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
   if (now.verdict === 'conflicted') {
@@ -280,8 +284,9 @@ export function checkPremise(facts: readonly Fact[], premise: Premise): PremiseC
 export function checkPremises(
   facts: readonly Fact[],
   premises: readonly Premise[],
+  today?: IsoDate,
 ): PremiseCheck[] {
-  return premises.map((p) => checkPremise(facts, p));
+  return premises.map((p) => checkPremise(facts, p, today));
 }
 
 /** True if any premise is unsafe to act on — the gate before drafting anything. */
