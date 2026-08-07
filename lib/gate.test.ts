@@ -34,6 +34,25 @@ describe('scanForPremises', () => {
     expect(scanForPremises(facts, 'Ask Jayanti about the schedule.')).toHaveLength(0);
   });
 
+  it('resolves an unambiguous first name to the person on record', () => {
+    // Real drafts say "Hi Jay", not "Hi Jay Menon". Missing that misses the
+    // wrong-recipient error, which is the costly half of a stale premise.
+    const found = scanForPremises(facts, 'Hi Jay, checking in on Atlas.');
+    expect(
+      found.some((p) => p.property === 'owner' && p.assumedValue === 'Jay Menon'),
+    ).toBe(true);
+  });
+
+  it('refuses an ambiguous first name rather than guessing', () => {
+    const two = buildFacts([
+      { entity: 'X', property: 'owner', value: 'Jay Menon', observedAt: '2026-07-01',
+        sourceLine: 1, sourceSpan: 'Jay Menon' },
+      { entity: 'X', property: 'lead', value: 'Jay Patel', observedAt: '2026-07-01',
+        sourceLine: 2, sourceSpan: 'Jay Patel' },
+    ]).facts;
+    expect(scanForPremises(two, 'Ask Jay about X.')).toHaveLength(0);
+  });
+
   it('finds nothing when the action names nothing on record', () => {
     expect(scanForPremises(facts, 'Book a meeting room for Thursday.')).toHaveLength(0);
   });
@@ -76,6 +95,27 @@ describe('gateAction', () => {
   it('judges the stale value when an action names both old and new', () => {
     const r = gateAction(facts, 'Neha Rao took over from Jay Menon on Atlas.');
     expect(r.verdict).toBe('BLOCK_STALE');
+  });
+
+  it('blocks a real model draft on both premises', () => {
+    // Verbatim from Gemini 3.1 Pro, 2026-08-07, given the demo log. Wrong
+    // recipient and a superseded date, in fluent prose with a subject line.
+    const r = gateAction(
+      facts,
+      'Hi Jay, I wanted to check in with you regarding Project Atlas and the ' +
+        'original launch target date of August 15, 2026.',
+    );
+    expect(r.verdict).toBe('BLOCK_STALE');
+    const flagged = r.checks.filter((c) => c.verdict === 'stale').map((c) => c.premise.property);
+    expect(flagged.toSorted()).toEqual(['launch', 'owner']);
+    expect(r.corrected).toContain('Neha Rao');
+    expect(r.corrected).toContain('2026-09-19');
+  });
+
+  it('replaces the longest matching form, leaving no orphan fragments', () => {
+    const r = gateAction(facts, 'Atlas launches on August 15, 2026.');
+    expect(r.corrected).toBe('Atlas launches on 2026-09-19.');
+    expect(r.corrected).not.toContain(', 2026.');
   });
 
   it('is empty-safe', () => {

@@ -56,6 +56,34 @@ function dateAliases(value: string): string[] {
   ];
 }
 
+/**
+ * People are referred to by first name, in drafts and in requests. The record
+ * stores "Jay Menon"; a real message says "Hi Jay". Requiring the full string
+ * misses the error that matters most — the wrong recipient.
+ *
+ * Only offered when the first name is UNAMBIGUOUS among the values in scope.
+ * With a "Jay Menon" and a "Jay Patel" on record, "Jay" resolves to neither,
+ * because guessing which one a draft meant is exactly the kind of invention
+ * this product exists to refuse.
+ */
+function firstNameAliases(values: readonly string[]): Map<string, string> {
+  const byFirst = new Map<string, Set<string>>();
+  for (const v of values) {
+    const parts = v.trim().split(/\s+/);
+    if (parts.length < 2) continue;
+    if (!parts.every((t) => /^[A-Za-z][A-Za-z'’-]*$/.test(t))) continue;
+    const first = parts[0].toLowerCase();
+    const set = byFirst.get(first) ?? new Set<string>();
+    set.add(v.trim().toLowerCase());
+    byFirst.set(first, set);
+  }
+  const unique = new Map<string, string>();
+  for (const [first, set] of byFirst) {
+    if (set.size === 1) unique.set([...set][0], first);
+  }
+  return unique;
+}
+
 /** Whole-token match, so "Sam" never matches inside "Samuel". */
 function mentions(haystack: string, needle: string): boolean {
   const h = ` ${haystack.toLowerCase().replace(/[^a-z0-9]+/g, ' ')} `;
@@ -85,9 +113,21 @@ export function scanForPremises(facts: readonly Fact[], action: string): Premise
     ? facts.filter((f) => named.includes(f.entity))
     : facts;
 
+  const nameAlias = firstNameAliases(inScope.map((f) => f.value));
+
   for (const f of inScope) {
-    const candidates = [f.value, ...dateAliases(f.value)];
-    const hit = candidates.find((v) => mentions(action, v));
+    const alias = nameAlias.get(f.value.trim().toLowerCase());
+    const candidates = [
+      f.value,
+      ...dateAliases(f.value),
+      ...(alias ? [alias] : []),
+    ];
+    // Longest match wins. "August 15" and "August 15, 2026" both match a draft
+    // containing the latter; replacing the short one leaves an orphan year and
+    // produces "2026-09-19, 2026".
+    const hit = candidates
+      .filter((v) => mentions(action, v))
+      .toSorted((a, b) => b.length - a.length)[0];
     if (!hit) continue;
 
     const pairKey = `${f.entity.toLowerCase()}::${f.property.toLowerCase()}`;
@@ -110,7 +150,16 @@ export function scanForPremises(facts: readonly Fact[], action: string): Premise
   return [...byPair.values()].map((v) => v.premise);
 }
 
-/** Swap every expired value in the action text for the one that replaced it. */
+/**
+ * Swap every expired value in the action text for the one that replaced it.
+ *
+ * A deliberate limit: this substitutes VALUES, it does not rewrite prose. A
+ * draft saying "the original launch target date of August 15" still says
+ * "original" after the date is corrected, and is then fluent and wrong. So the
+ * result is offered as corrected values, never as a message vouched for
+ * sentence by sentence. Producing confident text nobody checked is the failure
+ * this product exists to prevent; it would be absurd to commit it here.
+ */
 function rewrite(action: string, checks: readonly PremiseCheck[]): string {
   let out = action;
   for (const c of checks) {

@@ -4,6 +4,7 @@ import { useReducer } from 'react';
 import { demoState, reducer } from '../lib/state';
 import { isValidCandidate } from '../lib/engine';
 import { ActionGate } from './ActionGate';
+import { AgentLoop } from './AgentLoop';
 import { ConflictBin } from './ConflictBin';
 import { FactsTable } from './FactsTable';
 import { QueryPanel } from './QueryPanel';
@@ -70,6 +71,8 @@ export function CanonApp() {
   return (
     <>
       <ActionGate facts={state.facts} />
+
+      <AgentLoop facts={state.facts} />
 
       <TryItYourself />
 
