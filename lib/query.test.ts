@@ -138,13 +138,13 @@ describe('queryAsOf — history is preserved, not overwritten', () => {
 
 describe('checkPremise — the linter', () => {
   it('passes a premise that still holds', () => {
-    const r = checkPremise(owners, p('Atlas', 'owner', 'Neha'));
+    const r = checkPremise(owners, p('Atlas', 'owner', 'Neha'), '2026-08-08');
     expect(r.verdict).toBe('current');
     expect(r.currentValue).toBe('Neha');
   });
 
   it('REJECTS a stale premise and cites the fact that replaced it', () => {
-    const r = checkPremise(owners, p('Atlas', 'owner', 'Jay'));
+    const r = checkPremise(owners, p('Atlas', 'owner', 'Jay'), '2026-08-08');
     expect(r.verdict).toBe('stale');
     expect(r.currentValue).toBe('Neha');
     expect(r.supersededBy!.value).toBe('Neha');
@@ -161,7 +161,7 @@ describe('checkPremise — the linter', () => {
       c('Atlas', 'launch', '2026-09-05', '2026-07-20', 2),
       c('Atlas', 'launch', '2026-09-19', '2026-08-02', 3),
     ]).facts;
-    const r = checkPremise(launch, p('Atlas', 'launch', '2026-08-15'));
+    const r = checkPremise(launch, p('Atlas', 'launch', '2026-08-15'), '2026-08-08');
 
     expect(r.verdict).toBe('stale');
     expect(r.currentValue).toBe('2026-09-19');
@@ -185,7 +185,7 @@ describe('checkPremise — the linter', () => {
       c('Atlas', 'owner', 'A', '2026-07-20', 3),
       c('Atlas', 'owner', 'C', '2026-07-30', 4),
     ]).facts;
-    const r = checkPremise(repeated, p('Atlas', 'owner', 'A'));
+    const r = checkPremise(repeated, p('Atlas', 'owner', 'A'), '2026-08-08');
     expect(r.verdict).toBe('stale');
     expect(r.explanation).toContain('2026-07-20');
     expect(r.explanation).toContain('until 2026-07-30');
@@ -193,11 +193,11 @@ describe('checkPremise — the linter', () => {
   });
 
   it('separates "never knew" from "knew, and it expired"', () => {
-    const never = checkPremise(owners, p('Atlas', 'budget', '10L'));
+    const never = checkPremise(owners, p('Atlas', 'budget', '10L'), '2026-08-08');
     expect(never.verdict).toBe('unknown');
     expect(never.supersededBy).toBeUndefined();
 
-    const expired = checkPremise(owners, p('Atlas', 'owner', 'Jay'));
+    const expired = checkPremise(owners, p('Atlas', 'owner', 'Jay'), '2026-08-08');
     expect(expired.verdict).toBe('stale');
     expect(expired.supersededBy).toBeDefined();
   });
@@ -207,12 +207,12 @@ describe('checkPremise — the linter', () => {
       c('Atlas', 'status', 'green', '2026-07-25', 4),
       c('Atlas', 'status', 'red', '2026-07-25', 5),
     ]).facts;
-    expect(checkPremise(facts, p('Atlas', 'status', 'green')).verdict).toBe('conflicted');
+    expect(checkPremise(facts, p('Atlas', 'status', 'green'), '2026-08-08').verdict).toBe('conflicted');
   });
 
   it('blocks the draft if ANY premise is unsafe', () => {
-    const allGood = [checkPremise(owners, p('Atlas', 'owner', 'Neha'))];
-    const oneStale = [...allGood, checkPremise(owners, p('Atlas', 'owner', 'Jay'))];
+    const allGood = [checkPremise(owners, p('Atlas', 'owner', 'Neha'), '2026-08-08')];
+    const oneStale = [...allGood, checkPremise(owners, p('Atlas', 'owner', 'Jay'), '2026-08-08')];
     expect(hasBlockingPremise(allGood)).toBe(false);
     expect(hasBlockingPremise(oneStale)).toBe(true);
   });

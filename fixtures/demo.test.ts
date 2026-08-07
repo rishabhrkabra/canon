@@ -84,7 +84,7 @@ describe('demo state', () => {
 
 describe('the four demo answers', () => {
   it('q-stale-premise: both premises rejected, with receipts', () => {
-    const checks = checkPremises(facts, q('q-stale-premise').premises!);
+    const checks = checkPremises(facts, q('q-stale-premise').premises!, '2026-08-08');
     expect(checks.map((c) => c.verdict)).toEqual(['stale', 'stale']);
     expect(hasBlockingPremise(checks)).toBe(true);
 

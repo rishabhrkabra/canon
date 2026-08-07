@@ -1,6 +1,14 @@
 'use client';
 
 import { useReducer } from 'react';
+
+/** The user's calendar date, from local time components. */
+function localToday(): string {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
 import { demoState, reducer } from '../lib/state';
 import { isValidCandidate } from '../lib/engine';
 import { ActionGate } from './ActionGate';
@@ -59,12 +67,16 @@ export function CanonApp() {
         return;
       }
       dispatch({
-        type: 'apply',
+        type: 'propose',
         candidates,
+        rejected: Array.isArray(body?.rejected) ? body.rejected : [],
         mode,
-        // The one clock read in the app, and it happens in an event handler —
-        // never during render, so the server has nothing to disagree with.
-        today: mode === 'replace' ? new Date().toISOString().slice(0, 10) : undefined,
+        // The one clock read in the app, in an event handler — never during
+        // render, so the server has nothing to disagree with. Local calendar
+        // date, NOT toISOString(): that returns UTC, and at 3am IST "today"
+        // in UTC is still yesterday — which would file a same-day change as
+        // the future. An audit caught exactly that.
+        today: mode === 'replace' ? localToday() : undefined,
       });
     } catch {
       dispatch({
@@ -115,9 +127,13 @@ export function CanonApp() {
         message={state.message}
         records={state.records}
         isDemo={state.isDemo}
+        proposal={state.proposal}
         onChange={(timeline) => dispatch({ type: 'setTimeline', timeline })}
         onExtract={extract}
         onLoadDemo={() => dispatch({ type: 'loadDemo' })}
+        onConfirm={() => dispatch({ type: 'confirmProposal' })}
+        onDiscard={() => dispatch({ type: 'discardProposal' })}
+        onRejectCandidate={(index) => dispatch({ type: 'rejectCandidate', index })}
       />
     </>
   );

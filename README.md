@@ -225,9 +225,24 @@ the quote existed and the date matched — and passed it. Quote real, date real,
 fact invented. The claim "untrusted model output cannot corrupt truth" was
 demonstrably false.
 
-The fix closes the meaning gap, not just the existence gap: **the cited span
-must state the value itself** (dates in any written form). The model can point
-at evidence; it cannot smuggle a claim the evidence never states. Same round:
+The first fix required the cited span to state the value itself (dates in any
+written form). **Round four broke that too, and the break was instructive:**
+"Atlas status is *not* compromised" contains the word "compromised". Presence
+checks cannot read negation, quotation or hypotheticals — that is language,
+not string shape — and no regex fixes it.
+
+So the guarantee changed shape, honestly. The old claim was "untrusted model
+output cannot corrupt truth". The claim now is narrower and true:
+
+- The verifier rejects candidates whose cited line doesn't exist, doesn't
+  match the date, never mentions the entity, or never states the value. That
+  narrows what a misbehaving model can smuggle; it is not the boundary.
+- **The boundary is confirmation.** Extracted candidates are proposals. The UI
+  shows each one with its receipt — accept, reject row by row, or discard —
+  and truth state changes on confirm and nowhere else. A checker cannot read
+  "is not compromised"; the person reviewing the row can. `state.test.ts` pins
+  every door: proposing changes nothing, discarding leaves no trace, only
+  confirmation applies, and it applies exactly what survived review. Same round:
 future-dated facts were treated as current (the effective date is now a
 required argument through the whole gate path — TypeScript makes omission a
 compile error); "In Progress" grew a first name and blocked "send the update
@@ -325,6 +340,12 @@ echo "GEMINI_API_KEY=your-key" > .env.local
   collides with the original. Canon reports the date as contested instead of
   applying the correction. Refusing beats silently picking the stale number,
   but a correction is a real signal and the extractor drops it.
+- **Entity identity is model-normalised.** The extractor is asked to
+  canonicalise names ("Project Atlas" → "Atlas"), so two imports of the same
+  text could in principle split one entity into two histories. The receipt
+  verifier now rejects a candidate whose cited line never mentions its entity,
+  which blocks invented names — but a deterministic alias registry (or
+  confirmation on merge) is the real fix, and it is not built.
 - **Without a supplied date, "now" means "the latest thing on record."** A
   future-dated entry is therefore treated as current. `queryNow` takes an
   optional date to fix this; the engine never reads a clock, so the caller has

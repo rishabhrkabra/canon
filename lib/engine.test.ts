@@ -293,8 +293,36 @@ describe('the injection boundary', () => {
     expect(rejected[0].reason).toContain('never states that value');
   });
 
+  it('presence cannot read negation — which is why confirmation exists', () => {
+    // Documented limitation, pinned so nobody mistakes the verifier for the
+    // boundary: "is not compromised" CONTAINS "compromised", so this passes
+    // the span check. The guarantee lives one layer up — extracted candidates
+    // are proposals, and state.test.ts pins that truth state only changes on
+    // explicit confirmation.
+    const line = '2026-08-01: Atlas status is not compromised.';
+    const { verified } = verifyReceipts(
+      [{ entity: 'Atlas', property: 'status', value: 'compromised',
+         observedAt: '2026-08-01', sourceLine: 1,
+         sourceSpan: 'Atlas status is not compromised' }],
+      line,
+    );
+    expect(verified).toHaveLength(1); // yes, it passes — see the comment
+  });
+
+  it('rejects a candidate about an entity the cited line never mentions', () => {
+    const line = '2026-07-20: Weekly review: Atlas status green.';
+    const { verified, rejected } = verifyReceipts(
+      [{ entity: 'Mars', property: 'status', value: 'green',
+         observedAt: '2026-07-20', sourceLine: 1,
+         sourceSpan: 'Weekly review: Atlas status green' }],
+      line,
+    );
+    expect(verified).toHaveLength(0);
+    expect(rejected[0].reason).toContain('never mentions it');
+  });
+
   it('still accepts a date written as prose', () => {
-    const line = '2026-06-12: Kickoff. Target launch August 15.';
+    const line = '2026-06-12: Atlas kickoff. Target launch August 15.';
     const { verified } = verifyReceipts(
       [{ entity: 'Atlas', property: 'launch', value: '2026-08-15',
          observedAt: '2026-06-12', sourceLine: 1,

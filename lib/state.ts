@@ -21,6 +21,18 @@ export interface State {
   isDemo: boolean;
   /** The effective date every query and gate check runs against. */
   today: IsoDate;
+  /**
+   * Extracted candidates awaiting explicit confirmation. Model output NEVER
+   * applies directly — the receipt verifier narrows what a misbehaving model
+   * can claim, but only a person can read "is not compromised" and know the
+   * difference. Truth state changes on confirm, and nowhere else.
+   */
+  proposal: {
+    candidates: Candidate[];
+    rejected: { line: number; value: string; reason: string }[];
+    mode: 'merge' | 'replace';
+    today?: IsoDate;
+  } | null;
   /** Date the facts table is being viewed at; empty string = now. */
   asOf: IsoDate | '';
   selectedQuestionId: string | null;
@@ -38,12 +50,16 @@ export type Action =
    * someone pastes their own data and it silently mixes with the demo's.
    */
   | {
-      type: 'apply';
-      candidates: readonly Candidate[];
+      type: 'propose';
+      candidates: Candidate[];
+      rejected: { line: number; value: string; reason: string }[];
       mode: 'merge' | 'replace';
       /** Real today, read in the event handler. Only replace supplies it. */
       today?: IsoDate;
     }
+  | { type: 'discardProposal' }
+  | { type: 'rejectCandidate'; index: number }
+  | { type: 'confirmProposal' }
   | { type: 'setAsOf'; date: IsoDate | '' }
   | { type: 'selectQuestion'; id: string | null }
   | { type: 'extractStart' }
@@ -56,6 +72,7 @@ export const initialState: State = {
   records: [],
   isDemo: false,
   today: DEMO_TODAY,
+  proposal: null,
   asOf: '',
   selectedQuestionId: null,
   extract: 'idle',
@@ -84,17 +101,31 @@ export function reducer(state: State, action: Action): State {
     case 'loadDemo':
       return demoState();
 
-    case 'apply': {
-      const base = action.mode === 'replace' ? [] : state.facts;
-      const { facts, records } = applyCandidates(base, action.candidates);
+    case 'propose':
+      return { ...state, proposal: action, extract: 'idle', message: null };
+
+    case 'discardProposal':
+      return { ...state, proposal: null };
+
+    case 'rejectCandidate': {
+      if (!state.proposal) return state;
+      const kept = state.proposal.candidates.filter((_, i) => i !== action.index);
+      return { ...state, proposal: { ...state.proposal, candidates: kept } };
+    }
+
+    case 'confirmProposal': {
+      // The one door into truth state for extracted text.
+      const p = state.proposal;
+      if (!p || p.candidates.length === 0) return { ...state, proposal: null };
+      const base = p.mode === 'replace' ? [] : state.facts;
+      const { facts, records } = applyCandidates(base, p.candidates);
       return {
         ...state,
         facts,
-        records: action.mode === 'replace' ? records : [...state.records, ...records],
-        isDemo: action.mode === 'replace' ? false : state.isDemo,
-        today: action.mode === 'replace' && action.today ? action.today : state.today,
-        extract: 'idle',
-        message: null,
+        records: p.mode === 'replace' ? records : [...state.records, ...records],
+        isDemo: p.mode === 'replace' ? false : state.isDemo,
+        today: p.mode === 'replace' && p.today ? p.today : state.today,
+        proposal: null,
       };
     }
 

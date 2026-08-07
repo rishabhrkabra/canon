@@ -159,6 +159,13 @@ export function verifyReceipts(
       });
       continue;
     }
+    if (!norm(line).includes(norm(c.entity))) {
+      rejected.push({
+        candidate: c,
+        reason: `is about "${c.entity}", but line ${c.sourceLine} never mentions it`,
+      });
+      continue;
+    }
     verified.push(c);
   }
   return { verified, rejected };
@@ -169,7 +176,18 @@ const MONTH_NAMES = [
   'july','august','september','october','november','december',
 ];
 
-/** Does the cited span actually state the value it is being used to prove? */
+/**
+ * Does the cited span actually state the value it is being used to prove?
+ *
+ * An honest limit, learned from an audit: this is a PRESENCE check, and
+ * presence cannot read meaning. "Atlas status is not compromised" contains the
+ * word "compromised", so a candidate claiming status=compromised passes here.
+ * No regex fixes that — negation, quotation and hypotheticals are language,
+ * not string shape. This check narrows what a misbehaving model can smuggle;
+ * it cannot be the boundary. The boundary is that extracted candidates are
+ * PROPOSALS: nothing enters truth state until a person confirms it. That is
+ * enforced in the UI flow, and it is the actual guarantee.
+ */
 export function spanStatesValue(span: string, value: string): boolean {
   const norm = (x: string) => x.replace(/\s+/g, ' ').trim().toLowerCase();
   const s = norm(span);
