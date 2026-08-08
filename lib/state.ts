@@ -28,6 +28,15 @@ export interface State {
    * difference. Truth state changes on confirm, and nowhere else.
    */
   proposal: {
+    /**
+     * The exact timeline text these candidates were extracted from. A
+     * proposal is DERIVED state — it must be bound to what it was derived
+     * from, not merely sit beside it. An audit proved the failure: extract
+     * from timeline A, edit the box to timeline B, confirm — and A's facts
+     * land in a record whose visible source is B. Every line number and
+     * quoted span would then point into text that no longer exists.
+     */
+    source: string;
     candidates: Candidate[];
     rejected: { line: number; value: string; reason: string }[];
     mode: 'merge' | 'replace';
@@ -51,6 +60,7 @@ export type Action =
    */
   | {
       type: 'propose';
+      source: string;
       candidates: Candidate[];
       rejected: { line: number; value: string; reason: string }[];
       mode: 'merge' | 'replace';
@@ -96,7 +106,9 @@ export function demoState(): State {
 export function reducer(state: State, action: Action): State {
   switch (action.type) {
     case 'setTimeline':
-      return { ...state, timeline: action.timeline };
+      // Any edit orphans a pending proposal: its receipts cite line numbers
+      // and spans in text that just changed under it.
+      return { ...state, timeline: action.timeline, proposal: null };
 
     case 'loadDemo':
       return demoState();
@@ -117,6 +129,19 @@ export function reducer(state: State, action: Action): State {
       // The one door into truth state for extracted text.
       const p = state.proposal;
       if (!p || p.candidates.length === 0) return { ...state, proposal: null };
+      // Belt and braces: setTimeline already clears proposals, so this can
+      // only fire if a path around it appears. Refuse rather than write facts
+      // whose receipts point into text that is no longer there.
+      if (p.source !== state.timeline) {
+        return {
+          ...state,
+          proposal: null,
+          extract: 'error',
+          message:
+            'The timeline changed after these facts were extracted, so their ' +
+            'receipts no longer point at the text on screen. Extract again.',
+        };
+      }
       const base = p.mode === 'replace' ? [] : state.facts;
       const { facts, records } = applyCandidates(base, p.candidates);
       return {

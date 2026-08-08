@@ -54,7 +54,7 @@ describe('holdsOn — half-open [validFrom, validUntil)', () => {
 
 describe('queryNow', () => {
   it('returns the live value with a citation', () => {
-    const r = queryNow(owners, 'Atlas', 'owner');
+    const r = queryNow(owners, 'Atlas', 'owner', '2026-08-08');
     expect(r.verdict).toBe('known');
     expect(r.value).toBe('Neha');
     expect(r.citations).toHaveLength(1);
@@ -62,7 +62,7 @@ describe('queryNow', () => {
   });
 
   it('matches entity and property case-insensitively', () => {
-    expect(queryNow(owners, 'atlas', 'OWNER').value).toBe('Neha');
+    expect(queryNow(owners, 'atlas', 'OWNER', '2026-08-08').value).toBe('Neha');
   });
 
   it('does not treat a future-dated fact as current when given today', () => {
@@ -73,7 +73,6 @@ describe('queryNow', () => {
       c('Atlas', 'vendor', 'Cartwright', '2026-07-24', 2),
       c('Atlas', 'vendor', 'Northwind', '2026-08-14', 3),
     ]).facts;
-    expect(queryNow(vendor, 'Atlas', 'vendor').value).toBe('Northwind');
     expect(queryNow(vendor, 'Atlas', 'vendor', '2026-08-08').value).toBe('Cartwright');
     expect(queryNow(vendor, 'Atlas', 'vendor', '2026-08-20').value).toBe('Northwind');
   });
@@ -86,7 +85,7 @@ describe('queryNow', () => {
   });
 
   it('says unknown — with no citation — for something never observed', () => {
-    const r = queryNow(owners, 'Atlas', 'budget');
+    const r = queryNow(owners, 'Atlas', 'budget', '2026-08-08');
     expect(r.verdict).toBe('unknown');
     expect(r.citations).toEqual([]);
   });
@@ -96,7 +95,7 @@ describe('queryNow', () => {
       c('Atlas', 'status', 'green', '2026-07-25', 4),
       c('Atlas', 'status', 'red', '2026-07-25', 5),
     ]).facts;
-    const r = queryNow(facts, 'Atlas', 'status');
+    const r = queryNow(facts, 'Atlas', 'status', '2026-08-08');
     expect(r.verdict).toBe('conflicted');
     expect(r.value).toBeUndefined();     // no value is reported
     expect(r.citations).toHaveLength(2); // both sides shown
@@ -132,7 +131,7 @@ describe('queryAsOf — history is preserved, not overwritten', () => {
     ]).facts;
     expect(queryAsOf(launch, 'Atlas', 'launch', '2026-07-05').value).toBe('2026-08-15');
     expect(queryAsOf(launch, 'Atlas', 'launch', '2026-07-25').value).toBe('2026-09-05');
-    expect(queryNow(launch, 'Atlas', 'launch').value).toBe('2026-09-19');
+    expect(queryNow(launch, 'Atlas', 'launch', '2026-08-08').value).toBe('2026-09-19');
   });
 });
 

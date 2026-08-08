@@ -92,14 +92,21 @@ export function TimelineInput({
             cannot read &ldquo;is <em>not</em> compromised&rdquo;. You can.
           </p>
           {proposal.candidates.map((c: Candidate, i: number) => (
-            <div key={`${c.sourceLine}-${c.property}-${c.value}`} className="prop-row">
-              <span className="mono small">
-                {c.entity} · {c.property} = &ldquo;{c.value}&rdquo;
-              </span>
-              <span className="faint mono corr-src">line {c.sourceLine} · {c.observedAt}</span>
-              <button className="tiny" onClick={() => onRejectCandidate(i)}>
-                reject
-              </button>
+            <div key={`${c.sourceLine}-${c.property}-${c.value}`} className="prop-item">
+              <div className="prop-row">
+                <span className="mono small">
+                  {c.entity} · {c.property} = &ldquo;{c.value}&rdquo;
+                </span>
+                <span className="faint mono corr-src">line {c.sourceLine} · {c.observedAt}</span>
+                <button className="tiny" onClick={() => onRejectCandidate(i)}>
+                  reject
+                </button>
+              </div>
+              {/* The quote IS the review. Showing only entity·property=value
+                  asks the reviewer to approve a conclusion; the entire reason
+                  this step exists is that the source might say "is NOT
+                  compromised", and only the quote reveals that. */}
+              <div className="cite">&ldquo;{c.sourceSpan}&rdquo;</div>
             </div>
           ))}
           {proposal.rejected.length > 0 ? (

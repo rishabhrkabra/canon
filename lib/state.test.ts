@@ -23,6 +23,7 @@ describe('proposals', () => {
   const propose = (mode: 'merge' | 'replace' = 'merge') =>
     reducer(demoState(), {
       type: 'propose',
+      source: demoState().timeline,
       candidates: [c('Zephyr', 'owner', 'Mira Shah', '2026-08-06', 1)],
       rejected: [],
       mode,
@@ -44,6 +45,7 @@ describe('proposals', () => {
   it('rejecting a single candidate removes only that row', () => {
     const two = reducer(demoState(), {
       type: 'propose',
+      source: demoState().timeline,
       candidates: [
         c('Zephyr', 'owner', 'Mira Shah', '2026-08-06', 1),
         c('Zephyr', 'status', 'compromised', '2026-08-06', 2), // the injected one
@@ -68,9 +70,38 @@ describe('proposals', () => {
     expect(s.facts).toEqual(demoState().facts);
   });
 
+  it('editing the timeline orphans the pending proposal', () => {
+    // The audit repro, verbatim: extract from timeline A, edit the box to
+    // timeline B, confirm — and A's facts land in a record whose visible
+    // source is B, with every receipt pointing into text that no longer
+    // exists. Derived state binds to its source or it is wrong.
+    const s = reducer(propose(), { type: 'setTimeline', timeline: 'something else' });
+    expect(s.proposal).toBeNull();
+  });
+
+  it('refuses to confirm a proposal whose source no longer matches', () => {
+    // Belt and braces behind the invalidation above — if any path ever
+    // reaches confirm with a mismatched source, it must refuse, not write.
+    const before = demoState();
+    const stale = {
+      ...before,
+      proposal: {
+        source: 'text that is not on screen',
+        candidates: [c('Zephyr', 'owner', 'Mira Shah', '2026-08-06', 1)],
+        rejected: [],
+        mode: 'merge' as const,
+      },
+    };
+    const s = reducer(stale, { type: 'confirmProposal' });
+    expect(s.facts).toEqual(before.facts);
+    expect(s.proposal).toBeNull();
+    expect(s.message).toContain('timeline changed');
+  });
+
   it('replace mode adopts the supplied local date on confirm', () => {
     const p = reducer(demoState(), {
       type: 'propose',
+      source: demoState().timeline,
       candidates: [c('Zephyr', 'owner', 'Mira Shah', '2026-08-06', 1)],
       rejected: [],
       mode: 'replace',

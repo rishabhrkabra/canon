@@ -39,88 +39,21 @@ export function holdsOn(fact: Fact, date: IsoDate): boolean {
 }
 
 /**
- * What is true now, per the evidence we hold.
- *
- * `now` is optional and the engine never reads a clock — supply it and facts
- * that do not start until later are excluded; omit it and "now" means "the
- * latest thing on record". That default has a sharp edge, found on 2026-08-07
- * when Claude Fable 5 read a log with an entry dated six days ahead and
- * pointed out that the vendor named in it had not taken over yet. Canon called
- * it current. It was not.
- *
- * The date is a parameter rather than a clock read for two reasons: the engine
- * stays pure and replayable, and a component that renders from `new Date()`
- * produces a different tree on the server than the client.
+ * What is true on the given date — "now" is whatever date the caller says it
+ * is, and saying it is MANDATORY. This parameter was optional for one day,
+ * defaulting to "the latest thing on record", and an audit promptly showed a
+ * future-dated entry being treated as already true. The engine never reads a
+ * clock, so the only safe design is that the caller always supplies the date;
+ * making it required turns the mistake into a compile error, which is what a
+ * README claim of "TypeScript makes omission impossible" has to actually mean.
  */
 export function queryNow(
   facts: readonly Fact[],
   entity: string,
   property: string,
-  now?: IsoDate,
+  now: IsoDate,
 ): QueryResult {
-  // With a date supplied, "what is true now" is exactly "what was true as of
-  // today" — same question, same interval arithmetic. Reusing it avoids a
-  // second, subtly different notion of current: an interval already closed by
-  // a LATER-dated fact still holds today, which a naive start-date filter
-  // would wrongly discard.
-  if (now !== undefined) return queryAsOf(facts, entity, property, now);
-
-  const siblings = siblingsOf(facts, entity, property);
-  const base = { entity, property } as const;
-
-  if (siblings.length === 0) {
-    return {
-      ...base,
-      verdict: 'unknown',
-      citations: [],
-      explanation: `No evidence recorded for ${entity} · ${property}.`,
-    };
-  }
-
-  // Only an UNRESOLVED conflict blocks the current answer. A contradiction
-  // that a later observation settled is history — it stays visible when you
-  // query that date, but it must not poison the present forever.
-  const conflicted = siblings.filter(
-    (f) => f.status === 'conflicted' && f.validUntil === undefined,
-  );
-  if (conflicted.length > 0) {
-    return {
-      ...base,
-      verdict: 'conflicted',
-      citations: conflicted,
-      explanation:
-        `Contradictory evidence, all observed ${conflicted[0].observedAt}: ` +
-        conflicted.map((f) => `"${f.value}" (line ${f.sourceLine})`).join(' vs ') +
-        `. Nothing in the evidence resolves this, so no value is reported.`,
-    };
-  }
-
-  const active = siblings.filter((f) => f.status === 'active');
-  if (active.length === 0) {
-    // Everything we knew has been closed and nothing replaced it — the
-    // "knew, and it expired" case that a two-answer system cannot express.
-    const latest = [...siblings].sort((a, b) => (a.validFrom < b.validFrom ? 1 : -1))[0];
-    return {
-      ...base,
-      verdict: 'unknown',
-      citations: [latest],
-      explanation:
-        `Last known value was "${latest.value}", which stopped applying on ` +
-        `${latest.validUntil}. Nothing has replaced it, so the current value is unknown.`,
-    };
-  }
-
-  const current = active.sort((a, b) => (a.validFrom < b.validFrom ? 1 : -1))[0];
-  return {
-    ...base,
-    verdict: 'known',
-    value: current.value,
-    citations: [current],
-    explanation:
-      `"${current.value}" since ${current.validFrom}` +
-      (current.corroborations > 1 ? `, corroborated ${current.corroborations}×` : '') +
-      ` (line ${current.sourceLine}).`,
-  };
+  return queryAsOf(facts, entity, property, now);
 }
 
 /**

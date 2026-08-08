@@ -32,12 +32,16 @@ export function CanonApp() {
   const [state, dispatch] = useReducer(reducer, undefined, demoState);
 
   async function extract(mode: 'merge' | 'replace') {
+    // Captured before the request: by the time the response arrives the user
+    // may have edited the box, and the proposal must bind to what was actually
+    // extracted, not to whatever is on screen when it lands.
+    const source = state.timeline;
     dispatch({ type: 'extractStart' });
     try {
       const res = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ timeline: state.timeline }),
+        body: JSON.stringify({ timeline: source }),
       });
       const body = await res.json().catch(() => ({}));
 
@@ -68,6 +72,7 @@ export function CanonApp() {
       }
       dispatch({
         type: 'propose',
+        source,
         candidates,
         rejected: Array.isArray(body?.rejected) ? body.rejected : [],
         mode,

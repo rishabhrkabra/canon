@@ -77,8 +77,8 @@ describe('demo state', () => {
   it('keeps Jay current on Borealis while stale on Atlas — the trap', () => {
     // The whole demo turns on this: "remind Jay" looks reasonable because Jay
     // really does own a project. Just not this one.
-    expect(queryNow(facts, 'Borealis', 'owner').value).toBe('Jay Menon');
-    expect(queryNow(facts, 'Atlas', 'owner').value).toBe('Neha Rao');
+    expect(queryNow(facts, 'Borealis', 'owner', '2026-08-08').value).toBe('Jay Menon');
+    expect(queryNow(facts, 'Atlas', 'owner', '2026-08-08').value).toBe('Neha Rao');
   });
 });
 
@@ -107,7 +107,7 @@ describe('the four demo answers', () => {
 
   it('q-conflict: refuses, and shows both sides', () => {
     const { query } = q('q-conflict');
-    const r = queryNow(facts, query!.entity, query!.property);
+    const r = queryNow(facts, query!.entity, query!.property, '2026-08-08');
     expect(r.verdict).toBe('conflicted');
     expect(r.value).toBeUndefined();
     expect(r.citations.map((c) => c.value).toSorted()).toEqual(['green', 'red']);
@@ -118,7 +118,7 @@ describe('the four demo answers', () => {
     // is not any more. A system that cannot tell those apart either refuses
     // forever or answers a live contradiction with a guess.
     const { query } = q('q-resolved');
-    const now = queryNow(facts, query!.entity, query!.property);
+    const now = queryNow(facts, query!.entity, query!.property, '2026-08-08');
     expect(now.verdict).toBe('known');
     expect(now.value).toBe('amber');
 
@@ -127,6 +127,6 @@ describe('the four demo answers', () => {
     expect(onFirst.citations.map((c) => c.value).toSorted()).toEqual(['green', 'red']);
 
     // Atlas, by contrast, is still unresolved today.
-    expect(queryNow(facts, 'Atlas', 'status').verdict).toBe('conflicted');
+    expect(queryNow(facts, 'Atlas', 'status', '2026-08-08').verdict).toBe('conflicted');
   });
 });
